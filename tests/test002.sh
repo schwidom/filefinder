@@ -7,48 +7,48 @@ diff <( $BINARY -p space/ | sort ) \
 
 echo "$LINENO"
 
-diff <( $BINARY -p space/ -e 'true' | sort ) \
+diff <( $BINARY -p space/ -e 't' | sort ) \
      <( find space/ | sort)
 
 echo "$LINENO"
 
-diff <( $BINARY -p space/ -e '(true)' | sort ) \
+diff <( $BINARY -p space/ -e '(t0)' | sort ) \
      <( find space/ | sort)
 
 echo "$LINENO"
 
-diff <( $BINARY -p space/ -e 'false' | sort ) \
+diff <( $BINARY -p space/ -e 'f' | sort ) \
      <( find space/ -false | sort)
 
 echo "$LINENO"
 
-diff <( $BINARY -p space/ -e '(false)' | sort ) \
+diff <( $BINARY -p space/ -e '(f0)' | sort ) \
      <( find space/ -false | sort)
 
 # not implemented
-# diff <( $BINARY -p space/ -e '(false ox)' | sort ) \
+# diff <( $BINARY -p space/ -e '(f0 ox)' | sort ) \
 #      <( find space/ -false | sort)
 
 echo "$LINENO"
 
-diff <( $BINARY -p space/ -e '(ct ox)' | sort ) \
+diff <( $BINARY -p space/ -e '(ct0 ox)' | sort ) \
      <( find space/ -true | sort)
 
 echo "$LINENO"
 
-diff <( $BINARY -p space/ -e '(cf ox)' | sort ) \
+diff <( $BINARY -p space/ -e '(cf0 ox)' | sort ) \
      <( find space/ -false | sort)
 
 
 
-# { $BINARY -p space/ -e '(and (basename e) inject) '; }| sort
+# { $BINARY -p space/ -e '(and (basename1 e) inject) '; }| sort
 
-# diff <( { $BINARY -p space/ -e '(basename e) '; }| sort ) \
+# diff <( { $BINARY -p space/ -e '(basename1 e) '; }| sort ) \
 #      <( find space/ | sort)
 
 echo "$LINENO"
 
-diff <( { $BINARY -p space/ -e '(progn (and (basename e) cut) true)'; }| sort | uniq ) \
+diff <( { $BINARY -p space/ -e '(progn (and (basename1 e) cut) t)'; }| sort | uniq ) \
      <( find space/ | grep -vF '/e/' | sort)
 
 echo "$LINENO"
@@ -58,12 +58,12 @@ diff <( $BINARY -p space/ -e 'islink' | sort ) \
 
 echo "$LINENO"
 
-diff <( $BINARY -p space/ -e '(islink)' | sort ) \
+diff <( $BINARY -p space/ -e '(islink0)' | sort ) \
      <( find space/ -type l | sort)
 
 echo "$LINENO"
 
 # links which point to nowhere
-diff <( $BINARY -p space/ -e '(not exists)' | sort ) \
+diff <( $BINARY -p space/ -e '(not0 exists0)' | sort ) \
      <( find space/ -xtype l | sort)
 

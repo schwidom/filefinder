@@ -153,8 +153,8 @@ impl Interpreter {
    Sexp::Atom(Atom::S( atom)) => {
     match atom.as_str() {
      // "help" => true, // TODO
-     "true" => true,
-     "false" => false,
+     "t" => true,
+     "f" => false,
      "cut" => { self.tree_walk_methods.cut(); true},
      "uncut" => { self.tree_walk_methods.uncut(); true},
      "inject" => { if let Some( path) = state.path { self.tree_walk_methods.inject(path);} true},
@@ -180,34 +180,43 @@ impl Interpreter {
    match atom.as_str() {
     // TODO : hashtable
     // "help" => true, // TODO
-    "ct" => true, // comment true
-    "cf" => false, // comment false
-    "true" => {
-     self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[1..], path : state.path.clone()});
+    "ct0" => true, // comment true
+    "cf0" => false, // comment false
+    "t0" => {
+     self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[1..], path : state.path });
      true
     },
-    "false" => {
-     self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[1..], path : state.path.clone()});
+    "f0" => {
+     self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[1..], path : state.path });
      false
     },
     "or" => state.stmt[1..].iter().fold( false, 
-     | i, k | { i || self.interpret_term( State::<Sexp>{ stmt : k.clone(), path : state.path.clone() } ) }
+     | i, k | i || self.interpret_term( State::<Sexp>{ stmt : k.clone(), path : state.path })
     ),
     "and" => state.stmt[1..].iter().fold( true, 
-     | i, k | { i && self.interpret_term( State::<Sexp>{ stmt : k.clone(), path : state.path.clone() } ) }
+     | i, k | i && self.interpret_term( State::<Sexp>{ stmt : k.clone(), path : state.path })
     ),
     "progn" => state.stmt[1..].iter().fold( true, 
-     | _i, k | { self.interpret_term( State::<Sexp>{ stmt : k.clone(), path : state.path.clone() } ) }
+     | _i, k |  self.interpret_term( State::<Sexp>{ stmt : k.clone(), path : state.path })
     ),
-    "not" => { 
-      ! self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[1..], path : state.path.clone()})
+    "not0" => { 
+      ! self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[1..], path : state.path })
     }, 
-    "cut" => { self.tree_walk_methods.cut(); true},
-    "uncut" => { self.tree_walk_methods.uncut(); true},
-    "inject" => { 
+    "do0" => {
+      self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 1..], path : state.path})
+    },
+    "cut0" => { 
+      self.tree_walk_methods.cut(); 
+      self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 1..], path : state.path})
+    },
+    "uncut0" => {
+       self.tree_walk_methods.uncut();
+       self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 1..], path : state.path})
+    },
+    "inject1" => { 
       if let Sexp::Atom( Atom::S(path)) = &state.stmt[1] { // TODO : error handling
        self.tree_walk_methods.inject(&PathBuf::from( path));
-       true
+       self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[1..], path : state.path })
       } else {
        panic!("inject: path expected") 
       }
@@ -222,15 +231,15 @@ impl Interpreter {
       }
     }, 
 */
-    "injectonce" => { 
+    "injectonce1" => { 
       if let Sexp::Atom( Atom::S(path)) = &state.stmt[1] { // TODO : error handling
        self.tree_walk_methods.injectonce( &PathBuf::from( path));
-       true
+       self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[1..], path : state.path })
       } else {
        panic!("injectonce: path expected")
       }
     }, 
-    "in" => {
+    "in1" => {
       if let Sexp::Atom( Atom::S(path)) = &state.stmt[1] { // TODO : error handling
        let mut newpath = state.path.unwrap_or_else( || panic!("no current path given")).clone();
        newpath.push(PathBuf::from(path));
@@ -239,7 +248,7 @@ impl Interpreter {
        panic!("string expected") 
       }
     },
-    "inback" => {
+    "inback0" => {
       if let Sexp::Atom( Atom::S(path)) = &state.stmt[1] { // TODO : error handling
        let mut newpath = state.path.unwrap_or_else( || panic!("no current path given")).clone();
        newpath.pop();
@@ -248,7 +257,7 @@ impl Interpreter {
        panic!("string expected") 
       }
     },
-    "basename" => { 
+    "basename1" => { 
       if let Sexp::Atom( Atom::S(path)) = &state.stmt[1] { // TODO : error handling
        // eprintln!("{:?}", path);
        // eprintln!("{:?}", state.path.clone());
@@ -258,22 +267,25 @@ impl Interpreter {
        // BUG : path ist ein String während der file_name ein OsString ist, d.h. es gibt kaputte
        // Filenamen, die nicht der UTF-8 Spec entsprechen und damit nicht benannt werden können über die Sexp
        // hier wäre ein encoding regexes o.ä. sinnvoll
-       OsString::from( path) == state.path.unwrap().file_name().unwrap()
+       OsString::from( path) == state.path.unwrap().file_name().unwrap() &&
+       self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 2..].to_vec() , path : state.path })
       } else {
        panic!("string expected")
       }
     }, 
-    "filestem" => { 
+    "filestem1" => { 
       if let Sexp::Atom( Atom::S(path)) = &state.stmt[1] { // TODO : error handling
-       OsString::from( path) == state.path.unwrap().file_stem().unwrap()
+       OsString::from( path) == state.path.unwrap().file_stem().unwrap() &&
+       self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 2..].to_vec() , path : state.path })
       } else {
        panic!("string expected")
       }
     }, 
-    "extension" => { 
+    "extension1" => { 
       if let Sexp::Atom( Atom::S(path)) = &state.stmt[1] { // TODO : error handling
        if let Some( ext) = state.path.unwrap().extension() {
-        OsString::from( path) == ext
+        OsString::from( path) == ext && 
+        self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 2..].to_vec() , path : state.path })
        } else {
         false
        }
@@ -281,11 +293,11 @@ impl Interpreter {
        panic!("string expected")
       }
     }, 
-    "isdir" => state.path.unwrap().is_dir(),
-    "isfile" => state.path.unwrap().is_file(),
-    "islink" => state.path.unwrap().is_symlink(),
-    "exists" => state.path.unwrap().exists(),
-    _ => panic!("not implemented"),
+    "isdir0" => { state.path.unwrap().is_dir() && self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 1..].to_vec() , path : state.path }) },
+    "isfile0" => { state.path.unwrap().is_file() && self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 1..].to_vec() , path : state.path }) },
+    "islink0" => { state.path.unwrap().is_symlink() && self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 1..].to_vec() , path : state.path }) },
+    "exists0" => { state.path.unwrap().exists() && self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 1..].to_vec() , path : state.path }) },
+    _ => panic!("not implemented: ''{}''", atom),
    }
   } else {
    panic!("not implemented5 ''{}''", &state.stmt[0])
