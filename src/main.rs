@@ -152,6 +152,7 @@ impl Interpreter {
 
    Sexp::Atom(Atom::S( atom)) => {
     match atom.as_str() {
+     // "help" => true, // TODO
      "true" => true,
      "false" => false,
      "cut" => { self.tree_walk_methods.cut(); true},
@@ -159,6 +160,8 @@ impl Interpreter {
      "inject" => { if let Some( path) = state.path { self.tree_walk_methods.inject(path);} true},
      "isdir" => state.path.unwrap().is_dir(),
      "isfile" => state.path.unwrap().is_file(),
+     "islink" => state.path.unwrap().is_symlink(),
+     "exists" => state.path.unwrap().exists(),
      _ => panic!( "{}", "not implemented3 : ".to_string() + atom),
    }},
 
@@ -176,6 +179,7 @@ impl Interpreter {
   if let Sexp::Atom(Atom::S( atom)) = &state.stmt[0] {
    match atom.as_str() {
     // TODO : hashtable
+    // "help" => true, // TODO
     "ct" => true, // comment true
     "cf" => false, // comment false
     "true" => {
@@ -279,27 +283,15 @@ impl Interpreter {
     }, 
     "isdir" => state.path.unwrap().is_dir(),
     "isfile" => state.path.unwrap().is_file(),
+    "islink" => state.path.unwrap().is_symlink(),
+    "exists" => state.path.unwrap().exists(),
     _ => panic!("not implemented"),
    }
   } else {
-   panic!("not implemented5")
+   panic!("not implemented5 ''{}''", &state.stmt[0])
   }
  }
 
- // TODO : reduce clone calls
-
- fn interpret_top( &mut self, state : State<Sexp>) -> bool {
-  
-  match state.stmt {
-   Sexp::Atom(Atom::S( atom)) if atom == "help".to_string() => true, // TODO
-   Sexp::List(list) => self.interpret_slice( State::<&[Sexp]>{ stmt : &list[..], path : state.path } ) ,
-   _ => panic!("no atom or valid list"),
-  }
- }
- 
- fn interpret_stmt( &mut self, state : State<Sexp>) -> bool {
-  self.interpret_top( state)
- }
 }
 
 fn main() {
@@ -369,7 +361,7 @@ fn main() {
 
      if args.expression.clone().iter()
       .map( | exp | sexp::parse( exp.as_str()).unwrap())
-      .map( | stmt | interpreter.interpret_stmt( State{ path: Some( &path ), stmt: stmt}))
+      .map( | stmt | interpreter.interpret_term( State{ path: Some( &path ), stmt: stmt}))
       .fold( true, | accu, res | accu && res) {
       println!("{}", path.display());
      }
