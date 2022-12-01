@@ -6,7 +6,7 @@ extern crate sexp;
 use sexp::Sexp;
 use sexp::Atom;
 
-use std::path::Path;
+// use std::path::Path;
 use std::path::PathBuf;
 
 use std::process::exit;
@@ -62,9 +62,9 @@ impl SexpOrVec for Vec<Sexp> {}
 impl SexpOrVec for &[Sexp] {} // slice
 
 #[derive(Debug,Clone)]
-struct State<T> where T : SexpOrVec {
+struct State<'a,T> where T : SexpOrVec {
  // help : bool,
- path : Option<PathBuf>,
+ path : Option<&'a PathBuf>,
  stmt : T, // Sexp | Vec<Sexp>
 }
 
@@ -119,15 +119,14 @@ struct TreeWalkMethods{
 }
 
 impl TreeWalkMethods {
- // fn new() -> TreeWalkMethods { TreeWalkMethods{ cutted : false, injected : VecDeque::<PathBuf>::new(), already_injected : }}
  fn new() -> TreeWalkMethods { TreeWalkMethods::default()}
  fn cut( &mut self) { self.cutted = true;}
  fn uncut( &mut self) { self.cutted = false;}
- fn inject( &mut self, path : PathBuf) { self.injected.push_back( path);}
- fn injectonce( &mut self, path : PathBuf) {
-  if ! self.already_injected.contains(&path) {
+ fn inject( &mut self, path : &PathBuf) { self.injected.push_back( path.clone());}
+ fn injectonce( &mut self, path : &PathBuf) {
+  if ! self.already_injected.contains(path) {
    self.already_injected.insert( path.clone());
-   self.injected.push_back( path);
+   self.injected.push_back( path.clone());
   }
  }
  fn transmit( &mut self, tree_walk : &mut treewalk::TreeWalk) {
@@ -164,7 +163,7 @@ impl Interpreter {
    }},
 
    Sexp::List( list) => {
-    self.interpret_list( State::<Vec<Sexp>>{ stmt : list.clone(), path : state.path })
+    self.interpret_slice( State::<&[Sexp]>{ stmt : &list[..], path : state.path })
    },
 
    _ => panic!("not implemented4")
@@ -172,15 +171,6 @@ impl Interpreter {
  }
 
  fn interpret_slice( &mut self, state : State<&[Sexp]>) -> bool {
-  true
- }
-
- // TODO : reduce clone calls
-
- fn interpret_list( &mut self, state : State<Vec<Sexp>>) -> bool {
-
-  // println!("interpret_list : stmt {:?}", &state.stmt);
-
   if state.stmt.is_empty() { return true;}
 
   if let Sexp::Atom(Atom::S( atom)) = &state.stmt[0] {
@@ -189,11 +179,11 @@ impl Interpreter {
     "ct" => true, // comment true
     "cf" => false, // comment false
     "true" => {
-     self.interpret_list( State::<Vec<Sexp>>{ stmt : state.stmt[1..].to_vec(), path : state.path.clone()});
+     self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[1..], path : state.path.clone()});
      true
     },
     "false" => {
-     self.interpret_list( State::<Vec<Sexp>>{ stmt : state.stmt[1..].to_vec(), path : state.path.clone()});
+     self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[1..], path : state.path.clone()});
      false
     },
     "or" => state.stmt[1..].iter().fold( false, 
@@ -206,19 +196,16 @@ impl Interpreter {
      | _i, k | { self.interpret_term( State::<Sexp>{ stmt : k.clone(), path : state.path.clone() } ) }
     ),
     "not" => { 
-      // Demo line without function
-      self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[1..], path : state.path.clone()});
-
-      ! self.interpret_list( State::<Vec<Sexp>>{ stmt : state.stmt[1..].to_vec(), path : state.path.clone()})
+      ! self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[1..], path : state.path.clone()})
     }, 
     "cut" => { self.tree_walk_methods.cut(); true},
     "uncut" => { self.tree_walk_methods.uncut(); true},
     "inject" => { 
       if let Sexp::Atom( Atom::S(path)) = &state.stmt[1] { // TODO : error handling
-       self.tree_walk_methods.inject(PathBuf::from( path));
+       self.tree_walk_methods.inject(&PathBuf::from( path));
        true
       } else {
-       panic!("string expected") 
+       panic!("inject: path expected") 
       }
     }, 
 /* // planned feature
@@ -233,32 +220,26 @@ impl Interpreter {
 */
     "injectonce" => { 
       if let Sexp::Atom( Atom::S(path)) = &state.stmt[1] { // TODO : error handling
-       self.tree_walk_methods.injectonce(PathBuf::from( path));
+       self.tree_walk_methods.injectonce( &PathBuf::from( path));
        true
       } else {
-       panic!("string expected")
+       panic!("injectonce: path expected")
       }
     }, 
     "in" => {
       if let Sexp::Atom( Atom::S(path)) = &state.stmt[1] { // TODO : error handling
-       if let Some( mut newpath) = state.path.clone() {
-        newpath.push(PathBuf::from(path));
-        self.interpret_list( State::<Vec<Sexp>>{ stmt : state.stmt[ 2..].to_vec() , path : Some( newpath)})
-       } else {
-        panic!("no current path given") 
-       }
+       let mut newpath = state.path.unwrap_or_else( || panic!("no current path given")).clone();
+       newpath.push(PathBuf::from(path));
+       self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 2..], path : Some( &newpath)})
       } else { 
        panic!("string expected") 
       }
     },
     "inback" => {
       if let Sexp::Atom( Atom::S(path)) = &state.stmt[1] { // TODO : error handling
-       if let Some( mut newpath) = state.path.clone() {
-        newpath.pop();
-        self.interpret_list( State::<Vec<Sexp>>{ stmt : state.stmt[ 1..].to_vec() , path : Some( newpath)})
-       } else {
-        panic!("no current path given") 
-       }
+       let mut newpath = state.path.unwrap_or_else( || panic!("no current path given")).clone();
+       newpath.pop();
+       self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 1..].to_vec() , path : Some( &newpath)})
       } else { 
        panic!("string expected") 
       }
@@ -273,14 +254,14 @@ impl Interpreter {
        // BUG : path ist ein String während der file_name ein OsString ist, d.h. es gibt kaputte
        // Filenamen, die nicht der UTF-8 Spec entsprechen und damit nicht benannt werden können über die Sexp
        // hier wäre ein encoding regexes o.ä. sinnvoll
-       OsString::from( path.clone()) == state.path.unwrap().file_name().unwrap()
+       OsString::from( path) == state.path.unwrap().file_name().unwrap()
       } else {
        panic!("string expected")
       }
     }, 
     "filestem" => { 
       if let Sexp::Atom( Atom::S(path)) = &state.stmt[1] { // TODO : error handling
-       OsString::from( path.clone()) == state.path.unwrap().file_stem().unwrap()
+       OsString::from( path) == state.path.unwrap().file_stem().unwrap()
       } else {
        panic!("string expected")
       }
@@ -288,7 +269,7 @@ impl Interpreter {
     "extension" => { 
       if let Sexp::Atom( Atom::S(path)) = &state.stmt[1] { // TODO : error handling
        if let Some( ext) = state.path.unwrap().extension() {
-        OsString::from( path.clone()) == ext
+        OsString::from( path) == ext
        } else {
         false
        }
@@ -301,17 +282,17 @@ impl Interpreter {
     _ => panic!("not implemented"),
    }
   } else {
-   panic!("not implemented2")
+   panic!("not implemented5")
   }
-  
  }
+
+ // TODO : reduce clone calls
 
  fn interpret_top( &mut self, state : State<Sexp>) -> bool {
   
   match state.stmt {
    Sexp::Atom(Atom::S( atom)) if atom == "help".to_string() => true, // TODO
-   // Sexp::List(list) => self.interpret_list( State::<Vec<Sexp>>{ stmt : list, ..state } ) , // unterschiedliche typen
-   Sexp::List(list) => self.interpret_list( State::<Vec<Sexp>>{ stmt : list, path : state.path } ) ,
+   Sexp::List(list) => self.interpret_slice( State::<&[Sexp]>{ stmt : &list[..], path : state.path } ) ,
    _ => panic!("no atom or valid list"),
   }
  }
@@ -340,20 +321,6 @@ fn main() {
   return;
  }
  */
-
- /*
- // for x in Path::new( args.path.as_ref().unwrap()).ancestors() 
- for x in PathBuf::from( args.path.clone().unwrap().clone()).ancestors() 
- { 
-  println!( "ancestors: {}", x.display());
- }
-
- for x in std::fs::read_dir( PathBuf::from( args.path.clone().unwrap().clone())).unwrap()
- { 
-  println!( "read_dir: {:?}", x);
- }
- */
-
 
  /*
  if let Some( exp) = args.explain {
@@ -402,7 +369,7 @@ fn main() {
 
      if args.expression.clone().iter()
       .map( | exp | sexp::parse( exp.as_str()).unwrap())
-      .map( | stmt | interpreter.interpret_stmt( State{ path: Some( path.clone() ), stmt: stmt}))
+      .map( | stmt | interpreter.interpret_stmt( State{ path: Some( &path ), stmt: stmt}))
       .fold( true, | accu, res | accu && res) {
       println!("{}", path.display());
      }

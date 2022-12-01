@@ -95,53 +95,5 @@ pub fn tests() {
  }
  */
 
-
- /*
- {
-
-  /*
- 
-   Es gibt definitiv noch Optimierungsbedarf
-
-   (ins)$ time ./target/debug/filefinder -r | wc -l # ohne die obigen ausgaben
-   1440728
-   
-   real	0m6,919s
-   user	0m3,094s
-   sys	0m7,433s
-   
-   
-   (ins)$ time find /usr/ | wc -l
-   find: ‘/usr/share/horde/.git’: Keine Berechtigung
-   1440728
-   
-   real	0m1,966s
-   user	0m0,884s
-   sys	0m1,177s
-
-
-
-   (ins)$ time ./target/debug/filefinder -r >/dev/null 
-   
-   real	0m5,014s
-   user	0m2,114s
-   sys	0m2,883s
-
-   (ins)$ time ./target/release/filefinder -r >/dev/null 
-   
-   real	0m4,545s
-   user	0m1,581s
-   sys	0m2,947s
-
-  */
-
-  let tw = TreeWalk::new( PathBuf::from( "/usr"));
-  for x in tw { 
-   println!("{}", x.display());
-  }
- }
- 
- */
-
 }
 
