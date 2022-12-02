@@ -20,9 +20,11 @@ filefinder --exclude-from-file filefinder-exclusions.txt \
 A practical example: which directory in includes contains the files def.hpp and str.hpp ?
 
 $ filefinder -p /usr/include/ -e '(and0 (in1 def.hpp isfile0) (in1 str.hpp isfile0))'
+
 /usr/include/boost/python
 
 $ filefinder -p /usr/src/linux/ -e '(dirname1 (regex1 "Doc.*/bridge$"))'
+
 /usr/src/linux/Documentation/devicetree/bindings/drm/bridge/ptn3460.txt
 
 
