@@ -12,14 +12,16 @@ use std::path::PathBuf;
 use std::process::exit;
 
 use std::collections::HashSet;
-// use std::collections::HashMap;
+use std::collections::HashMap;
 use std::collections::VecDeque;
 
 use std::ffi::OsString;
+use std::ffi::OsStr;
 
 // use std::fs::File;
 use std::fs::read_to_string;
 
+extern crate regex;
 
 fn get_type_of<T>(_: &T) -> String {
     format!("{}", std::any::type_name::<T>())
@@ -141,13 +143,103 @@ impl TreeWalkMethods {
  }
 }
 
+trait ComparatorTrait<T> {
+ fn cmp( &mut self, s1 : &Sexp, s2 : T) -> bool;
+}
+
+#[derive(Default)]
+struct Comparator {
+  regex_map : HashMap<String,regex::Regex>,
+}
+
+impl ComparatorTrait<&String> for Comparator {
+ fn cmp( &mut self, s1 : &Sexp, s2 : &String) -> bool
+ {
+  // if let Sexp::Atom( Atom::S(path)) = &state.stmt[1]
+
+  match s1 {
+   Sexp::Atom( Atom::S( value1)) => value1 == s2,
+   _ => panic!(),
+  }
+ }
+}
+
+/*
+    "basename1" => { 
+      if let Sexp::Atom( Atom::S(path)) = &state.stmt[1] { // TODO : error handling
+       // eprintln!("{:?}", path);
+       // eprintln!("{:?}", state.path.clone());
+       // eprintln!("{:?}", state.path.clone().unwrap().file_name());
+       // eprintln!("{:?}", state.path.clone().unwrap().file_name().unwrap());
+       // *path == state.path.unwrap().file_name().unwrap().to_str().unwrap().to_string()
+       // BUG : path ist ein String während der file_name ein OsString ist, d.h. es gibt kaputte
+       // Filenamen, die nicht der UTF-8 Spec entsprechen und damit nicht benannt werden können über die Sexp
+       // hier wäre ein encoding regexes o.ä. sinnvoll
+       // Die Lösung besteht in der Verwendung von OsString.to_string_lossy
+
+       OsString::from( path) == state.path.unwrap().file_name().unwrap() &&
+       self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 2..].to_vec() , path : state.path })
+      } else {
+       panic!("error in {}: string expected", atom)
+      }
+    }, 
+*/
+
+impl Comparator {
+ fn handle_regex( &mut self, regex_stmt : & Vec<Sexp>, subject_str : &String) -> bool {
+
+  if 2 == regex_stmt.len() && Sexp::Atom( Atom::S( "regex1".to_string())) == regex_stmt[0] {
+   if let Sexp::Atom( Atom::S( regex_str)) = &regex_stmt[1] {
+
+    if ! self.regex_map.contains_key( regex_str) { 
+     self.regex_map.insert( regex_str.clone(), regex::Regex::new(regex_str.as_str()).unwrap());
+    }
+
+    let regex = &self.regex_map[regex_str]; // copy
+
+    return regex.is_match( subject_str.as_str())
+   }
+  }
+  panic!();
+ }
+}
+
+impl ComparatorTrait<&OsString> for Comparator {
+ fn cmp( &mut self, s1 : &Sexp, s2 : &OsString) -> bool
+ {
+  // if let Sexp::Atom( Atom::S(path)) = &state.stmt[1]
+
+  match s1 {
+   Sexp::Atom( Atom::S( value1)) => &OsString::from( value1) == s2,
+   Sexp::List( stmt) => self.handle_regex( &stmt, &s2.to_string_lossy().to_string()),
+   _ => panic!(),
+  }
+ }
+}
+
+impl ComparatorTrait<&OsStr> for Comparator {
+ fn cmp( &mut self, s1 : &Sexp, s2 : &OsStr) -> bool
+ {
+  // if let Sexp::Atom( Atom::S(path)) = &state.stmt[1]
+
+  match s1 {
+   Sexp::Atom( Atom::S( value1)) => &OsString::from( value1) == s2,
+   Sexp::List( stmt) => self.handle_regex( &stmt, &s2.to_string_lossy().to_string()),
+   _ => panic!(),
+  }
+ }
+}
+
+#[derive(Default)]
 struct Interpreter {
  tree_walk_methods : TreeWalkMethods,
+ comparator : Comparator,
 }
 
 impl Interpreter {
 
- fn new() -> Self { Interpreter{ tree_walk_methods : TreeWalkMethods::new() } }
+ // fn new() -> Self { Interpreter{ tree_walk_methods : TreeWalkMethods::new() } }
+ fn new() -> Self { Interpreter::default() }
 
  fn interpret_term( &mut self, state : State<Sexp>) -> bool {
 
@@ -221,7 +313,7 @@ impl Interpreter {
        self.tree_walk_methods.inject(&PathBuf::from( path));
        self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[1..], path : state.path })
       } else {
-       panic!("inject: path expected") 
+       panic!("error in {}: string expected", atom)
       }
     }, 
 /* // planned feature
@@ -239,7 +331,7 @@ impl Interpreter {
        self.tree_walk_methods.injectonce( &PathBuf::from( path));
        self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[1..], path : state.path })
       } else {
-       panic!("injectonce: path expected")
+       panic!("error in {}: string expected", atom)
       }
     }, 
     "in1" => {
@@ -248,84 +340,36 @@ impl Interpreter {
        newpath.push(PathBuf::from(path));
        self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 2..], path : Some( &newpath)})
       } else { 
-       panic!("string expected") 
+       panic!("error in {}: string expected", atom)
       }
     },
     "inback0" => {
-      if let Sexp::Atom( Atom::S(path)) = &state.stmt[1] { // TODO : error handling
-       let mut newpath = state.path.unwrap_or_else( || panic!("no current path given")).clone();
-       newpath.pop();
-       self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 1..].to_vec() , path : Some( &newpath)})
-      } else { 
-       panic!("string expected") 
-      }
+      let mut newpath = state.path.unwrap_or_else( || panic!("no current path given")).clone();
+      newpath.pop();
+      self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 1..].to_vec() , path : Some( &newpath)})
     },
     "dirname1" => { 
-      if let Sexp::Atom( Atom::S(path)) = &state.stmt[1] { // TODO : error handling
-       // eprintln!("{:?}", path);
-       // eprintln!("{:?}", state.path.clone());
-       // eprintln!("{:?}", state.path.clone().unwrap().file_name());
-       // eprintln!("{:?}", state.path.clone().unwrap().file_name().unwrap());
-       // *path == state.path.unwrap().file_name().unwrap().to_str().unwrap().to_string()
-       // BUG : path ist ein String während der file_name ein OsString ist, d.h. es gibt kaputte
-       // Filenamen, die nicht der UTF-8 Spec entsprechen und damit nicht benannt werden können über die Sexp
-       // hier wäre ein encoding regexes o.ä. sinnvoll
-       PathBuf::from( path).as_path() == state.path.unwrap().parent().unwrap() &&
-       self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 2..].to_vec() , path : state.path })
-      } else {
-       panic!("string expected")
-      }
+      self.comparator.cmp( &state.stmt[1], state.path.unwrap().parent().unwrap().as_os_str()) &&
+      self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 2..].to_vec() , path : state.path })
     }, 
     "path1" => { 
-      if let Sexp::Atom( Atom::S(path)) = &state.stmt[1] { // TODO : error handling
-       // eprintln!("{:?}", path);
-       // eprintln!("{:?}", state.path.clone());
-       // eprintln!("{:?}", state.path.clone().unwrap().file_name());
-       // eprintln!("{:?}", state.path.clone().unwrap().file_name().unwrap());
-       // *path == state.path.unwrap().file_name().unwrap().to_str().unwrap().to_string()
-       // BUG : path ist ein String während der file_name ein OsString ist, d.h. es gibt kaputte
-       // Filenamen, die nicht der UTF-8 Spec entsprechen und damit nicht benannt werden können über die Sexp
-       // hier wäre ein encoding regexes o.ä. sinnvoll
-       &PathBuf::from( path) == state.path.unwrap() &&
+       self.comparator.cmp( &state.stmt[1], state.path.unwrap().as_os_str()) &&
        self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 2..].to_vec() , path : state.path })
-      } else {
-       panic!("string expected")
-      }
     }, 
     "basename1" => { 
-      if let Sexp::Atom( Atom::S(path)) = &state.stmt[1] { // TODO : error handling
-       // eprintln!("{:?}", path);
-       // eprintln!("{:?}", state.path.clone());
-       // eprintln!("{:?}", state.path.clone().unwrap().file_name());
-       // eprintln!("{:?}", state.path.clone().unwrap().file_name().unwrap());
-       // *path == state.path.unwrap().file_name().unwrap().to_str().unwrap().to_string()
-       // BUG : path ist ein String während der file_name ein OsString ist, d.h. es gibt kaputte
-       // Filenamen, die nicht der UTF-8 Spec entsprechen und damit nicht benannt werden können über die Sexp
-       // hier wäre ein encoding regexes o.ä. sinnvoll
-       OsString::from( path) == state.path.unwrap().file_name().unwrap() &&
-       self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 2..].to_vec() , path : state.path })
-      } else {
-       panic!("string expected")
-      }
+      self.comparator.cmp( &state.stmt[1], state.path.unwrap().file_name().unwrap()) &&
+      self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 2..].to_vec() , path : state.path })
     }, 
     "filestem1" => { 
-      if let Sexp::Atom( Atom::S(path)) = &state.stmt[1] { // TODO : error handling
-       OsString::from( path) == state.path.unwrap().file_stem().unwrap() &&
-       self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 2..].to_vec() , path : state.path })
-      } else {
-       panic!("string expected")
-      }
+      self.comparator.cmp( &state.stmt[1], state.path.unwrap().file_stem().unwrap()) &&
+      self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 2..].to_vec() , path : state.path })
     }, 
     "extension1" => { 
-      if let Sexp::Atom( Atom::S(path)) = &state.stmt[1] { // TODO : error handling
-       if let Some( ext) = state.path.unwrap().extension() {
-        OsString::from( path) == ext && 
-        self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 2..].to_vec() , path : state.path })
-       } else {
-        false
-       }
+      if let Some( ext) = state.path.unwrap().extension() {
+       self.comparator.cmp( &state.stmt[1], ext) &&
+       self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 2..].to_vec() , path : state.path })
       } else {
-       panic!("string expected")
+       false
       }
     }, 
     "isdir0" => { state.path.unwrap().is_dir() && self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 1..].to_vec() , path : state.path }) },

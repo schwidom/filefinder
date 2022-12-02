@@ -33,6 +33,34 @@ diff <(echo true) <( $BINARY -p space/ -c '(basename1 space)')
 
 echo "$LINENO"
 
+diff <(echo true) <( $BINARY -p space/ -c '(basename1 (regex1 space))')
+diff <(echo true) <( $BINARY -p space/ -c '(basename1 (regex1 "s.*e"))')
+diff <(echo true) <( $BINARY -p space/ -c '(basename1 (regex1 "s.*.*e"))')
+diff <(echo false) <( $BINARY -p space/ -c '(basename1 (regex1 "s.*z.*e"))')
+
+diff <( $BINARY -p space/ -e '(path1 (regex1 "sp.*g.txt$"))') \
+     <( find space/ -iregex '^sp.*g.txt$')
+
+diff <( $BINARY -p space/ -e '(path1 (regex1 ".*g.txt$"))') \
+     <( find space/ -iregex '^sp.*g.txt$')
+
+diff <( $BINARY -p space/ -e '(path1 (regex1 "g.txt$"))') \
+     <( find space/ -iregex '^sp.*g.txt$')
+
+diff <( $BINARY -p space/ -e '(path1 (regex1 "^g.txt$"))') \
+     <( find space/ -iregex '^sp.*g.txt$' -a -false)
+
+diff <( $BINARY -p space/ -e '(path1 (regex1 "^g.txt$"))') \
+     <( find space/ -iregex '^g.txt$')
+
+diff <( $BINARY -p space/ -e '(path1 (regex1 "^sp.*g.txt$"))') \
+     <( find space/ -iregex '^sp.*g.txt$')
+
+diff <( $BINARY -p space/ -e '(dirname1 (regex1 "d"))') \
+     <( find space/ -iregex '.*d.*' -a -not -name '*d*')
+
+echo "$LINENO"
+
 diff <(echo false) <( $BINARY -p space/ -c '(basename1 spac)')
 
 echo "$LINENO"
@@ -59,6 +87,7 @@ diff <(echo true) <( $BINARY -p space/ -c '(in1 a/d/g.txt progn0 (basename1 g.tx
 
 diff <(echo true) <( $BINARY -p space/ -c '(in1 a/d/g.txt progn0 (path1 space/a/d/g.txt))')
 diff <(echo true) <( $BINARY -p space/ -c '(in1 a/d/g.txt progn0 (dirname1 space/a/d))')
+diff <(echo true) <( $BINARY -p space/ -c '(in1 a/d/g.txt inback0 basename1 d)')
 
 diff <(echo true) <( $BINARY -p space/a/d/g.txt -c 'isfile')
 diff <(echo true) <( $BINARY -p space/a/d/g.txt -c '(isfile0)')
