@@ -1,0 +1,12 @@
+ /*
+ {
+  // ohne den softlink schutz jmu1xuoi8c verbraucht er ein haufen Speicher und wird nicht fertig
+  // verbrauchte für alle Files immer nur 0.7% (224 MB) als debug target
+  // load average lag zwischen 1.18 und 1.50
+  let tw = TreeWalk::new( PathBuf::from( "/"));
+  for x in tw { 
+   println!("{}", x.display());
+  }
+ }
+ */
+

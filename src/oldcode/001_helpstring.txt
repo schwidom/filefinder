@@ -1,0 +1,18 @@
+/*
+  let helpstring =
+"filefinder -e (find (name ...) (nameregex ...)
+  (command ...) (command ...)
+  (or (isfile) (isdir) ...) 
+  (in <directory> (isdir) (inregex <dir-regex> (isdir))) ... 
+ )
+".to_string();
+  
+  if state.help { 
+   Help( 
+    match state.stmt {
+     Sexp::Atom(Atom::S( atom)) if atom == "help".to_string() => helpstring,
+     _ => "".to_string(),
+    } )
+  } else {
+  }
+*/
