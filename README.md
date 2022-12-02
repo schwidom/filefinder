@@ -22,6 +22,10 @@ A practical example: which directory in includes contains the files def.hpp and 
 $ filefinder -p /usr/include/ -e '(and0 (in1 def.hpp isfile0) (in1 str.hpp isfile0))'
 /usr/include/boost/python
 
+$ filefinder -p /usr/src/linux/ -e '(dirname1 (regex1 "Doc.*/bridge$"))'
+/usr/src/linux/Documentation/devicetree/bindings/drm/bridge/ptn3460.txt
+
+
 It is not the fastest one but will be optimized in the future and will be extended by 
 tests, functions and documentation.
 
