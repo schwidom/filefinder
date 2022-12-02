@@ -1,2 +1,2 @@
-(ins)$ ./bin/touchpath.sh space/{a,b,c}/{d,e,f}/{g,h,i}.txt
+./bin/recreate_space.sh # creates the space testing directory
 

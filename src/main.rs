@@ -6,7 +6,7 @@ extern crate sexp;
 use sexp::Sexp;
 use sexp::Atom;
 
-// use std::path::Path;
+use std::path::Path;
 use std::path::PathBuf;
 
 use std::process::exit;
@@ -17,7 +17,7 @@ use std::collections::VecDeque;
 
 use std::ffi::OsString;
 
-use std::fs::File;
+// use std::fs::File;
 use std::fs::read_to_string;
 
 
@@ -39,6 +39,9 @@ struct Args {
 
  #[arg(short, long)]
  expression : Vec<String>,
+
+ #[arg(short, long)]
+ check_expression : Vec<String>,
 
  // #[arg(short = 'x', long)]
  // explain : Option<String>,
@@ -190,13 +193,13 @@ impl Interpreter {
      self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[1..], path : state.path });
      false
     },
-    "or" => state.stmt[1..].iter().fold( false, 
+    "or0" => state.stmt[1..].iter().fold( false, 
      | i, k | i || self.interpret_term( State::<Sexp>{ stmt : k.clone(), path : state.path })
     ),
-    "and" => state.stmt[1..].iter().fold( true, 
+    "and0" => state.stmt[1..].iter().fold( true, 
      | i, k | i && self.interpret_term( State::<Sexp>{ stmt : k.clone(), path : state.path })
     ),
-    "progn" => state.stmt[1..].iter().fold( true, 
+    "progn0" => state.stmt[1..].iter().fold( true, 
      | _i, k |  self.interpret_term( State::<Sexp>{ stmt : k.clone(), path : state.path })
     ),
     "not0" => { 
@@ -257,6 +260,38 @@ impl Interpreter {
        panic!("string expected") 
       }
     },
+    "dirname1" => { 
+      if let Sexp::Atom( Atom::S(path)) = &state.stmt[1] { // TODO : error handling
+       // eprintln!("{:?}", path);
+       // eprintln!("{:?}", state.path.clone());
+       // eprintln!("{:?}", state.path.clone().unwrap().file_name());
+       // eprintln!("{:?}", state.path.clone().unwrap().file_name().unwrap());
+       // *path == state.path.unwrap().file_name().unwrap().to_str().unwrap().to_string()
+       // BUG : path ist ein String während der file_name ein OsString ist, d.h. es gibt kaputte
+       // Filenamen, die nicht der UTF-8 Spec entsprechen und damit nicht benannt werden können über die Sexp
+       // hier wäre ein encoding regexes o.ä. sinnvoll
+       PathBuf::from( path).as_path() == state.path.unwrap().parent().unwrap() &&
+       self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 2..].to_vec() , path : state.path })
+      } else {
+       panic!("string expected")
+      }
+    }, 
+    "path1" => { 
+      if let Sexp::Atom( Atom::S(path)) = &state.stmt[1] { // TODO : error handling
+       // eprintln!("{:?}", path);
+       // eprintln!("{:?}", state.path.clone());
+       // eprintln!("{:?}", state.path.clone().unwrap().file_name());
+       // eprintln!("{:?}", state.path.clone().unwrap().file_name().unwrap());
+       // *path == state.path.unwrap().file_name().unwrap().to_str().unwrap().to_string()
+       // BUG : path ist ein String während der file_name ein OsString ist, d.h. es gibt kaputte
+       // Filenamen, die nicht der UTF-8 Spec entsprechen und damit nicht benannt werden können über die Sexp
+       // hier wäre ein encoding regexes o.ä. sinnvoll
+       &PathBuf::from( path) == state.path.unwrap() &&
+       self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 2..].to_vec() , path : state.path })
+      } else {
+       panic!("string expected")
+      }
+    }, 
     "basename1" => { 
       if let Sexp::Atom( Atom::S(path)) = &state.stmt[1] { // TODO : error handling
        // eprintln!("{:?}", path);
@@ -334,55 +369,75 @@ fn main() {
   
   let path = PathBuf::from( args.path.as_ref().unwrap_or_else( || { eprintln!("--path expected"); exit( 1);}));
 
-  let mut tree_walk = treewalk::TreeWalk::new( path);
-
   let mut interpreter = Interpreter::new();
 
-  {
-   args.exclude_from_file.clone().iter()
-    .map( |fname| {
-     // let f = File::open( fname).unwrap_or_else( || { eprintln!("cannot open file: ''{}''", fname); exit( 1);});
-     let s = read_to_string( fname).unwrap_or_else( | _ | { eprintln!("cannot open file: ''{}''", fname); exit( 1);});
-     let excluded_filenames = s.split( | c | { c == '\n' || c == '\r'} );
-     excluded_filenames.fold( 0, | _a, k | { // TODO : fold ?
-       tree_walk.insert_excluded_filename( PathBuf::from( k.trim()));
-       0
-      }
-     )
-    })
-    .fold( 0, | _a, _k| 0);
-  }
 
   if None == args.path { panic!("path has to be set");}
 
-  loop {
+  if ! args.check_expression.is_empty() {
+   
+   let path = PathBuf::from( args.path.unwrap());
 
-   match tree_walk.next() {
+   if args.check_expression.clone().iter() // 3y18vmwgej // TODO : into function
+    .map( | exp | sexp::parse( exp.as_str()).unwrap())
+    .map( | stmt | interpreter.interpret_term( State{ path: Some( &path ), stmt: stmt}))
+    .fold( true, | accu, res | accu && res) {
+    println!("true");
+   }
+   else
+   {
+    println!("false");
+   }
+  }
+  else 
+  {
 
-    None => break,
+   let mut tree_walk = treewalk::TreeWalk::new( path);
 
-    Some( path) => {
-
-     /*
-     for exp in args.expression.clone() {
-      let stmt = sexp::parse( exp.as_str()).unwrap();
-      let res = interpreter.interpret_stmt( State{ path: Some( path.clone() ), stmt: stmt});
-      if res { println!("{}", path.display()); }
-     }
-     */
-
-     if args.expression.clone().iter()
-      .map( | exp | sexp::parse( exp.as_str()).unwrap())
-      .map( | stmt | interpreter.interpret_term( State{ path: Some( &path ), stmt: stmt}))
-      .fold( true, | accu, res | accu && res) {
-      println!("{}", path.display());
-     }
-
-    },
-
+   {
+    args.exclude_from_file.clone().iter()
+     .map( |fname| {
+      // let f = File::open( fname).unwrap_or_else( || { eprintln!("cannot open file: ''{}''", fname); exit( 1);});
+      let s = read_to_string( fname).unwrap_or_else( | _ | { eprintln!("cannot open file: ''{}''", fname); exit( 1);});
+      let excluded_filenames = s.split( | c | { c == '\n' || c == '\r'} );
+      excluded_filenames.fold( 0, | _a, k | { // TODO : fold ?
+        tree_walk.insert_excluded_filename( PathBuf::from( k.trim()));
+        0
+       }
+      )
+     })
+     .fold( 0, | _a, _k| 0);
    }
 
-   interpreter.tree_walk_methods.transmit( &mut tree_walk);
+   loop {
+
+    match tree_walk.next() {
+
+     None => break,
+
+     Some( path) => {
+
+      /*
+      for exp in args.expression.clone() {
+       let stmt = sexp::parse( exp.as_str()).unwrap();
+       let res = interpreter.interpret_stmt( State{ path: Some( path.clone() ), stmt: stmt});
+       if res { println!("{}", path.display()); }
+      }
+      */
+
+      if args.expression.clone().iter() // 3y18vmwgej 
+       .map( | exp | sexp::parse( exp.as_str()).unwrap())
+       .map( | stmt | interpreter.interpret_term( State{ path: Some( &path ), stmt: stmt}))
+       .fold( true, | accu, res | accu && res) {
+       println!("{}", path.display());
+      }
+
+     },
+
+    }
+
+    interpreter.tree_walk_methods.transmit( &mut tree_walk);
+   }
   }
  }
 

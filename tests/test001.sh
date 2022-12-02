@@ -2,17 +2,17 @@
 
 echo "$LINENO"
 
-diff <( $BINARY -p space/ -e '(or (basename1 e) (basename1 f))' -e '(or (basename1 e) (basename1 d))') \
-     <( $BINARY -p space/ -e '(and (or (basename1 e) (basename1 f)) (or (basename1 e) (basename1 d)))')
+diff <( $BINARY -p space/ -e '(or0 (basename1 e) (basename1 f))' -e '(or0 (basename1 e) (basename1 d))') \
+     <( $BINARY -p space/ -e '(and0 (or0 (basename1 e) (basename1 f)) (or0 (basename1 e) (basename1 d)))')
 
 echo "$LINENO"
 
-diff <( $BINARY -p space/ -e '(or (basename1 e) (basename1 f))' -e '(or (basename1 e) (basename1 d))') \
-     <( $BINARY -p space/ -e '(and (or (basename1 e) (basename1 f)) (or (basename1 e) (basename1 d)))')
+diff <( $BINARY -p space/ -e '(or0 (basename1 e) (basename1 f))' -e '(or0 (basename1 e) (basename1 d))') \
+     <( $BINARY -p space/ -e '(and0 (or0 (basename1 e) (basename1 f)) (or0 (basename1 e) (basename1 d)))')
 
 echo "$LINENO"
 
-diff <( $BINARY -p space/ -e '(or (basename1 e) (basename1 f))' -e '(or (basename1 e) (basename1 d))') \
+diff <( $BINARY -p space/ -e '(or0 (basename1 e) (basename1 f))' -e '(or0 (basename1 e) (basename1 d))') \
      <( $BINARY -p space/ -e '(basename1 e)')
 
 echo "$LINENO"

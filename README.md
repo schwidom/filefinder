@@ -11,12 +11,16 @@ filefinder --exclude-from-file filefinder-exclusions.txt \
  The command 'cut' means not to search deeper in the found directory
   so the directory is found and the aim is reached.
 
- And I introduced the arity for all commands with limited arity because I allow 
-  a subsequential call after all commands after the last argument, so the
-  arity makes clear where the last argument is.
+ And I introduced a number for the minimum arity for all commands which
+  stays at the end of each command.
 
  Who wants to see more of its functionality can currently see a lot in the tests.
 )
+
+A practical example: which directory in includes contains the files def.hpp and str.hpp ?
+
+$ filefinder -p /usr/include/ -e '(and0 (in1 def.hpp isfile0) (in1 str.hpp isfile0))'
+/usr/include/boost/python
 
 It is not the fastest one but will be optimized in the future and will be extended by 
 tests, functions and documentation.

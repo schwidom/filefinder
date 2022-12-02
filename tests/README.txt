@@ -1,9 +1,1 @@
-export BINARY=../target/debug/filefinder
-
-or
-
-export BINARY=../target/release/filefinder
-
-then
-
-./run_all_tests.sh
+run ./run_all_tests_debug.sh or ./run_all_tests_release.sh in this directory

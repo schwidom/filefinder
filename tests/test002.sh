@@ -41,14 +41,19 @@ diff <( $BINARY -p space/ -e '(cf0 ox)' | sort ) \
 
 
 
-# { $BINARY -p space/ -e '(and (basename1 e) inject) '; }| sort
+# { $BINARY -p space/ -e '(and0 (basename1 e) inject) '; }| sort
 
 # diff <( { $BINARY -p space/ -e '(basename1 e) '; }| sort ) \
 #      <( find space/ | sort)
 
 echo "$LINENO"
 
-diff <( { $BINARY -p space/ -e '(progn (and (basename1 e) cut) t)'; }| sort | uniq ) \
+diff <( { $BINARY -p space/ -e '(progn0 (and0 (basename1 e) cut) t)'; }| sort | uniq ) \
+     <( find space/ | grep -vF '/e/' | sort)
+
+echo "$LINENO"
+
+diff <( { $BINARY -p space/ -e '(progn0 (basename1 e cut0) t)'; }| sort | uniq ) \
      <( find space/ | grep -vF '/e/' | sort)
 
 echo "$LINENO"
