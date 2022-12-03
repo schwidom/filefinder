@@ -218,8 +218,20 @@ impl Interpreter {
   }
  }
 
+ fn cont2( &mut self, i : usize, state : &State<&[Sexp]>) -> bool {
+  self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ i..] , path : state.path })
+ }
+
+ fn cont3( &mut self, i : usize, state : &State<&[Sexp]>, path : Option<&PathBuf>) -> bool {
+  self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ i..] , path : path })
+ }
+
  fn interpret_slice( &mut self, state : State<&[Sexp]>) -> bool {
   if state.stmt.is_empty() { return true;}
+
+  let mut cont = | i : usize | -> bool { 
+   self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ i..] , path : state.path }) 
+  };
 
   if let Sexp::Atom(Atom::S( atom)) = &state.stmt[0] {
    match atom.as_str() {
@@ -227,14 +239,8 @@ impl Interpreter {
     // "help" => true, // TODO
     "ct0" => true, // comment true
     "cf0" => false, // comment false
-    "t0" => {
-     self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[1..], path : state.path });
-     true
-    },
-    "f0" => {
-     self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[1..], path : state.path });
-     false
-    },
+    "t0" => { cont( 1); true },
+    "f0" => { cont( 1); false },
     "or0" => state.stmt[1..].iter().fold( false, 
      | i, k | i || self.interpret_term( State::<Sexp>{ stmt : k.clone(), path : state.path })
     ),
@@ -244,24 +250,20 @@ impl Interpreter {
     "progn0" => state.stmt[1..].iter().fold( true, 
      | _i, k |  self.interpret_term( State::<Sexp>{ stmt : k.clone(), path : state.path })
     ),
-    "not0" => { 
-      ! self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[1..], path : state.path })
-    }, 
-    "do0" => {
-      self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 1..], path : state.path})
-    },
+    "not0" => { ! cont( 1) }, 
+    "do0" => { cont( 1) },
     "cut0" => { 
       self.tree_walk_methods.cut(); 
-      self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 1..], path : state.path})
+      self.cont2( 1, &state)
     },
     "uncut0" => {
        self.tree_walk_methods.uncut();
-       self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 1..], path : state.path})
+       self.cont2( 1, &state)
     },
     "inject1" => { 
       if let Sexp::Atom( Atom::S(path)) = &state.stmt[1] { // TODO : error handling
        self.tree_walk_methods.inject(&PathBuf::from( path));
-       self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[1..], path : state.path })
+       self.cont2( 2, &state)
       } else {
        panic!("error in {}: string expected", atom)
       }
@@ -279,7 +281,7 @@ impl Interpreter {
     "injectonce1" => { 
       if let Sexp::Atom( Atom::S(path)) = &state.stmt[1] { // TODO : error handling
        self.tree_walk_methods.injectonce( &PathBuf::from( path));
-       self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[1..], path : state.path })
+       self.cont2( 2, &state)
       } else {
        panic!("error in {}: string expected", atom)
       }
@@ -288,7 +290,7 @@ impl Interpreter {
       if let Sexp::Atom( Atom::S(path)) = &state.stmt[1] { // TODO : error handling
        let mut newpath = state.path.unwrap_or_else( || panic!("no current path given")).clone();
        newpath.push(PathBuf::from(path));
-       self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 2..], path : Some( &newpath)})
+       self.cont3( 2, &state, Some( &newpath))
       } else { 
        panic!("error in {}: string expected", atom)
       }
@@ -296,37 +298,37 @@ impl Interpreter {
     "inback0" => {
       let mut newpath = state.path.unwrap_or_else( || panic!("no current path given")).clone();
       newpath.pop();
-      self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 1..].to_vec() , path : Some( &newpath)})
+      self.cont3( 1, &state, Some( &newpath))
     },
     "dirname1" => { 
       self.comparator.cmp( &state.stmt[1], state.path.unwrap().parent().unwrap().as_os_str()) &&
-      self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 2..].to_vec() , path : state.path })
+      self.cont2( 2, &state)
     }, 
     "path1" => { 
        self.comparator.cmp( &state.stmt[1], state.path.unwrap().as_os_str()) &&
-       self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 2..].to_vec() , path : state.path })
+       self.cont2( 2, &state)
     }, 
     "basename1" => { 
       self.comparator.cmp( &state.stmt[1], state.path.unwrap().file_name().unwrap()) &&
-      self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 2..].to_vec() , path : state.path })
+      self.cont2( 2, &state)
     }, 
     "filestem1" => { 
       self.comparator.cmp( &state.stmt[1], state.path.unwrap().file_stem().unwrap()) &&
-      self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 2..].to_vec() , path : state.path })
+      self.cont2( 2, &state)
     }, 
     "extension1" => { 
       if let Some( ext) = state.path.unwrap().extension() {
        self.comparator.cmp( &state.stmt[1], ext) &&
-       self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 2..].to_vec() , path : state.path })
+       self.cont2( 2, &state)
       } else {
        false
       }
     }, 
-    "isdir0" => { state.path.unwrap().is_dir() && self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 1..].to_vec() , path : state.path }) },
-    "isfile0" => { state.path.unwrap().is_file() && self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 1..].to_vec() , path : state.path }) },
-    "islink0" => { state.path.unwrap().is_symlink() && self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 1..].to_vec() , path : state.path }) },
-    "exists0" => { state.path.unwrap().exists() && self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 1..].to_vec() , path : state.path }) },
-    "isempty0" => { state.path.unwrap().is_empty() && self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 1..].to_vec() , path : state.path }) },
+    "isdir0" => { state.path.unwrap().is_dir() && cont( 1) },
+    "isfile0" => { state.path.unwrap().is_file() && cont( 1) },
+    "islink0" => { state.path.unwrap().is_symlink() && cont( 1) },
+    "exists0" => { state.path.unwrap().exists() && cont( 1) },
+    "isempty0" => { state.path.unwrap().is_empty() && cont( 1) },
     _ => panic!("not implemented: ''{}''", atom),
    }
   } else {
