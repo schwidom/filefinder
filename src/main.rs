@@ -165,6 +165,27 @@ struct Interpreter {
  comparator : Comparator,
 }
 
+use std::fs::metadata;
+
+trait PathBufTrait {
+ fn is_empty( &self ) -> bool;
+}
+
+impl PathBufTrait for PathBuf {
+ fn is_empty( &self) -> bool { 
+  if self.is_file() {
+   match metadata( self) {
+    Ok( md) => md.len() == 0,
+    _ => false,
+   }
+  } else if self.is_dir() {
+   self.read_dir().unwrap().next().is_none()
+  } else {
+   false
+  }
+ }
+}
+
 impl Interpreter {
 
  fn new() -> Self { Interpreter::default() }
@@ -185,6 +206,7 @@ impl Interpreter {
      "isfile" => state.path.unwrap().is_file(),
      "islink" => state.path.unwrap().is_symlink(),
      "exists" => state.path.unwrap().exists(),
+     "empty" => state.path.unwrap().is_empty(),
      _ => panic!( "{}", "not implemented3 : ".to_string() + atom),
    }},
 
@@ -304,6 +326,7 @@ impl Interpreter {
     "isfile0" => { state.path.unwrap().is_file() && self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 1..].to_vec() , path : state.path }) },
     "islink0" => { state.path.unwrap().is_symlink() && self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 1..].to_vec() , path : state.path }) },
     "exists0" => { state.path.unwrap().exists() && self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 1..].to_vec() , path : state.path }) },
+    "empty0" => { state.path.unwrap().is_empty() && self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 1..].to_vec() , path : state.path }) },
     _ => panic!("not implemented: ''{}''", atom),
    }
   } else {

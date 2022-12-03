@@ -2,4 +2,4 @@
 
 export BINARY="../target/release/filefinder"
 
-./run_all_tests.sh
+bin/run_all_tests.sh

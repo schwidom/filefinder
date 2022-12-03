@@ -1,1 +1,8 @@
-run ./run_all_tests_debug.sh or ./run_all_tests_release.sh in this directory
+run one of:
+
+bin/run_all_tests_debug.sh 
+bin/run_all_tests_release.sh 
+
+bin/testenvelop.sh bin/run_all_tests_debug.sh 
+bin/testenvelop.sh bin/run_all_tests_release.sh 
+
