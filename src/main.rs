@@ -360,16 +360,20 @@ fn main() {
 
  let mut interpreter = Interpreter::new();
 
+ fn interpret(v : Vec<String>, interpreter : &mut Interpreter, path : &PathBuf) -> bool {
+  v.iter() 
+   .map( | exp | sexp::parse( exp.as_str()).unwrap())
+   .map( | stmt | interpreter.interpret_term( State{ path: Some( &path ), stmt: stmt}))
+   .fold( true, | accu, res | accu && res)
+ }
+
  if None == args.path { panic!("path has to be set");}
 
  if ! args.check_expression.is_empty() {
   
   let path = PathBuf::from( args.path.unwrap());
 
-  if args.check_expression.clone().iter() // 3y18vmwgej // TODO : into function
-   .map( | exp | sexp::parse( exp.as_str()).unwrap())
-   .map( | stmt | interpreter.interpret_term( State{ path: Some( &path ), stmt: stmt}))
-   .fold( true, | accu, res | accu && res) {
+  if interpret( args.check_expression.clone(), &mut interpreter, &path) {
    println!("true");
   }
   else
@@ -405,10 +409,7 @@ fn main() {
 
     Some( path) => {
 
-     if args.expression.clone().iter() // 3y18vmwgej 
-      .map( | exp | sexp::parse( exp.as_str()).unwrap())
-      .map( | stmt | interpreter.interpret_term( State{ path: Some( &path ), stmt: stmt}))
-      .fold( true, | accu, res | accu && res) {
+     if interpret( args.expression.clone(), &mut interpreter, &path) {
       println!("{}", path.display());
      }
 
