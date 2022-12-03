@@ -1,4 +1,4 @@
-filefinder 0.1.8
+filefinder 0.1.9
 ./test001.sh
 3
 8
@@ -48,4 +48,4 @@ filefinder 0.1.8
 10
 15
 done (don't forget to check)
-filefinder 0.1.8
+filefinder 0.1.9

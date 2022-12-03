@@ -206,7 +206,7 @@ impl Interpreter {
      "isfile" => state.path.unwrap().is_file(),
      "islink" => state.path.unwrap().is_symlink(),
      "exists" => state.path.unwrap().exists(),
-     "empty" => state.path.unwrap().is_empty(),
+     "isempty" => state.path.unwrap().is_empty(),
      _ => panic!( "{}", "not implemented3 : ".to_string() + atom),
    }},
 
@@ -326,7 +326,7 @@ impl Interpreter {
     "isfile0" => { state.path.unwrap().is_file() && self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 1..].to_vec() , path : state.path }) },
     "islink0" => { state.path.unwrap().is_symlink() && self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 1..].to_vec() , path : state.path }) },
     "exists0" => { state.path.unwrap().exists() && self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 1..].to_vec() , path : state.path }) },
-    "empty0" => { state.path.unwrap().is_empty() && self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 1..].to_vec() , path : state.path }) },
+    "isempty0" => { state.path.unwrap().is_empty() && self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ 1..].to_vec() , path : state.path }) },
     _ => panic!("not implemented: ''{}''", atom),
    }
   } else {
