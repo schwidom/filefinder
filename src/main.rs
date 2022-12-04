@@ -46,7 +46,7 @@ struct Args {
  expression : Vec<String>,
 
  #[arg(short, long)]
- check_expression : Vec<String>,
+ check_expression : bool,
 
  // #[arg(short = 'i', long)]
  // help2 : bool, // optional und ohne Parameter
@@ -56,6 +56,9 @@ struct Args {
 
  #[arg(long)]
  debug_log_cuts_file : Option<String>,
+
+ #[arg(long)]
+ files_from_stdin : bool,
 }
 
 fn runtests() {
@@ -388,17 +391,39 @@ fn main() {
  
  let args = Args::parse();
 
- let path = PathBuf::from( args.path.as_ref().unwrap_or_else( || { eprintln!("--path expected"); exit( 1);}));
-
  let mut interpreter = Interpreter::new(); // vr9e9deprc 
 
- if None == args.path { panic!("path has to be set");}
+ if args.files_from_stdin {
 
- if ! args.check_expression.is_empty() {
+  use std::io::stdin;
+
+  let mut input_line = String::new();
+
+  while let Ok(nchars) = stdin().read_line(&mut input_line) {
+
+   if 0 == nchars { break } // ^D
+   input_line.pop(); // remove \n 
+
+   if interpreter.interpret( args.expression.clone(), &PathBuf::from(input_line.clone()))
+   {
+    println!("{}", input_line);
+   }
+
+   input_line.clear();
+  }
+
+  exit( 0);
+ }
+ 
+ let path = PathBuf::from( args.path.as_ref().unwrap_or_else( || { eprintln!("fatal: --path expected"); exit( 1);}));
+
+ if None == args.path { panic!("fatal: path has to be set");}
+
+ if args.check_expression {
   
   let path = PathBuf::from( args.path.unwrap());
 
-  if interpreter.interpret( args.check_expression.clone(), &path) {
+  if interpreter.interpret( args.expression.clone(), &path) {
    println!("true");
   }
   else

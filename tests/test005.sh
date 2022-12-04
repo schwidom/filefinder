@@ -60,3 +60,19 @@ diff <( "$BINARY" -p space/ -e '(progn0 (in1 (basename1 "space" cut0)) t)' | sor
 ## 
 ## diff /tmp/002.txt <( echo 'cut: Some("space/a/f")')
 
+
+echo "$LINENO"
+
+diff <( find space/ | "$BINARY" --files-from-stdin -e 't' ) \
+     <( find space/  )
+
+echo "$LINENO"
+
+diff <( find space/ | "$BINARY" --files-from-stdin -e '(and0 isdir (not0 islink0))' ) \
+     <( find space/ -type d )
+
+echo "$LINENO"
+
+diff <( find space/ | "$BINARY" --files-from-stdin -e '(and0 isfile (not0 islink0))' ) \
+     <( find space/ -type f )
+
