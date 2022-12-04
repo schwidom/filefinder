@@ -12,7 +12,7 @@ It is also possible to process an already available list of files via pipe:
 > ```find projects/ | grep -v -F -f filefinder-exclusions.txt | filefinder --files-from-stdin -e '(and0 (in1 "target" isdir0) (in1 "Cargo.toml" isfile0) cut)'```
 
 
-*The* command 'cut' means not to search deeper in the found directory so the directory is found and the aim is reached. And I introduced a number for the minimum arity for all commands which stays at the end of each command. Who wants to see more of its functionality can currently see a lot in the tests. *
+( The command 'cut' means not to search deeper in the found directory so the directory is found and the aim is reached. And I introduced a number for the minimum arity for all commands which stays at the end of each command. Who wants to see more of its functionality can currently see a lot in the tests. )
 
 A practical example: which directory in includes contains the files def.hpp and str.hpp ?
 
