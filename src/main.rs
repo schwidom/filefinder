@@ -18,8 +18,11 @@ use std::collections::VecDeque;
 use std::ffi::OsString;
 use std::ffi::OsStr;
 
-// use std::fs::File;
+use std::fs::File;
 use std::fs::read_to_string;
+
+use std::io::LineWriter;
+use std::fs::metadata;
 
 extern crate regex;
 
@@ -50,6 +53,9 @@ struct Args {
  
  #[arg(long)]
  exclude_from_file : Vec<String>, // darf nicht mit ./ beginnen
+
+ #[arg(long)]
+ debug_log_cuts_file : Option<String>,
 }
 
 fn runtests() {
@@ -60,7 +66,7 @@ fn runtests() {
 trait SexpOrVec {}
 
 impl SexpOrVec for Sexp {}
-impl SexpOrVec for Vec<Sexp> {}
+// impl SexpOrVec for Vec<Sexp> {}
 impl SexpOrVec for &[Sexp] {} // slice
 
 #[derive(Debug,Clone)]
@@ -163,9 +169,8 @@ impl ComparatorTrait<&OsStr> for Comparator {
 struct Interpreter {
  tree_walk_methods : TreeWalkMethods,
  comparator : Comparator,
+ // cut_log : Option<LineWriter<File>>,
 }
-
-use std::fs::metadata;
 
 trait PathBufTrait {
  fn is_empty( &self ) -> bool;
@@ -287,6 +292,35 @@ impl Interpreter {
       }
     }, 
     "in1" => {
+
+      match &state.stmt[1] {
+       Sexp::Atom( Atom::S(path)) => {
+        let mut newpath = state.path.unwrap_or_else( || panic!("no current path given")).clone();
+        newpath.push(PathBuf::from(path));
+        self.cont3( 2, &state, Some( &newpath))
+       },
+       Sexp::List( stmt) => {
+        // let mut interpreter = Interpreter::new(); // TODO : brauche ich einen neuen interpreter?
+        let mut res : bool = false;
+        if let Ok( direntries) = state.path.unwrap().read_dir() { 
+         for direntry in direntries {
+          let path = direntry.unwrap().path();
+          if self.interpret2( stmt, &path) 
+          {
+           res = self.cont3( 2, &state, Some( &path));
+           break;
+          }
+         }
+         res
+        } else { 
+         false
+        }
+
+       },
+       _ => panic!("error in {}: string or command expected", atom)
+      }
+
+/*
       if let Sexp::Atom( Atom::S(path)) = &state.stmt[1] { // TODO : error handling
        let mut newpath = state.path.unwrap_or_else( || panic!("no current path given")).clone();
        newpath.push(PathBuf::from(path));
@@ -294,6 +328,7 @@ impl Interpreter {
       } else { 
        panic!("error in {}: string expected", atom)
       }
+*/
     },
     "inback0" => {
       let mut newpath = state.path.unwrap_or_else( || panic!("no current path given")).clone();
@@ -336,38 +371,26 @@ impl Interpreter {
   }
  }
 
+ fn interpret( &mut self, v : Vec<String>, path : &PathBuf) -> bool {
+  v.iter() 
+   .map( | exp | sexp::parse( exp.as_str()).unwrap())
+   .map( | stmt | self.interpret_term( State{ path: Some( &path ), stmt: stmt}))
+   .fold( true, | accu, res | accu && res)
+ }
+
+ fn interpret2( &mut self, stmt : &[Sexp], path : &PathBuf) -> bool {
+  self.interpret_slice( State::<&[Sexp]>{ path: Some( &path ), stmt: stmt}) // TODO : State{ stmt : &T}
+ }
+
 }
 
 fn main() {
  
  let args = Args::parse();
- let args2 = args.clone();
-
- /*
- if args.runtests {
-  runtests();
-  exit(0);
- }
- */
-
- /*
- if true == args.help2 { 
-  println!( "filefinder -x help");
-  println!( "filefinder -x '(help)'");
-  return;
- }
- */
 
  let path = PathBuf::from( args.path.as_ref().unwrap_or_else( || { eprintln!("--path expected"); exit( 1);}));
 
- let mut interpreter = Interpreter::new();
-
- fn interpret(v : Vec<String>, interpreter : &mut Interpreter, path : &PathBuf) -> bool {
-  v.iter() 
-   .map( | exp | sexp::parse( exp.as_str()).unwrap())
-   .map( | stmt | interpreter.interpret_term( State{ path: Some( &path ), stmt: stmt}))
-   .fold( true, | accu, res | accu && res)
- }
+ let mut interpreter = Interpreter::new(); // vr9e9deprc 
 
  if None == args.path { panic!("path has to be set");}
 
@@ -375,7 +398,7 @@ fn main() {
   
   let path = PathBuf::from( args.path.unwrap());
 
-  if interpret( args.check_expression.clone(), &mut interpreter, &path) {
+  if interpreter.interpret( args.check_expression.clone(), &path) {
    println!("true");
   }
   else
@@ -388,19 +411,18 @@ fn main() {
 
   let mut tree_walk = treewalk::TreeWalk::new( path);
 
+  if let Some( cut_log) = args.debug_log_cuts_file {
+   tree_walk.cut_log = Some( LineWriter::new( File::create( cut_log).unwrap()));
+  }
+
   {
    args.exclude_from_file.clone().iter()
     .map( |fname| {
-     // let f = File::open( fname).unwrap_or_else( || { eprintln!("cannot open file: ''{}''", fname); exit( 1);});
      let s = read_to_string( fname).unwrap_or_else( | _ | { eprintln!("cannot open file: ''{}''", fname); exit( 1);});
      let excluded_filenames = s.split( | c | { c == '\n' || c == '\r'} );
-     excluded_filenames.fold( 0, | _a, k | { // TODO : fold ?
-       tree_walk.insert_excluded_filename( PathBuf::from( k.trim()));
-       0
-      }
-     )
+     excluded_filenames.for_each( | k | { tree_walk.insert_excluded_filename( PathBuf::from( k.trim())); });
     })
-    .fold( 0, | _a, _k| 0);
+    .for_each( | _k | () );
   }
 
   loop {
@@ -411,7 +433,7 @@ fn main() {
 
     Some( path) => {
 
-     if interpret( args.expression.clone(), &mut interpreter, &path) {
+     if interpreter.interpret( args.expression.clone(), &path) {
       println!("{}", path.display());
      }
 
@@ -422,6 +444,4 @@ fn main() {
    interpreter.tree_walk_methods.transmit( &mut tree_walk);
   }
  }
-
- // println!("{:?}", args2);
 }
