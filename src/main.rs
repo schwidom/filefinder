@@ -387,6 +387,23 @@ impl Interpreter {
 
 }
 
+fn create_hash_set_from_excluded_files( args : Args) -> HashSet<PathBuf> {
+
+ let mut ret : HashSet<PathBuf> = HashSet::new(); // darf nicht mit ./ beginnen
+
+ args.exclude_from_file.iter()
+  .map( |fname| {
+   let s = read_to_string( fname).unwrap_or_else( | _ | { eprintln!("cannot open file: ''{}''", fname); exit( 1);});
+   let excluded_filenames = s.split( | c | { c == '\n' || c == '\r'} );
+   excluded_filenames.for_each( | k | { 
+    if k != "" { ret.insert( PathBuf::from( k));}
+   });
+  })
+  .for_each( | _k | () );
+
+ ret
+}
+
 fn main() {
  
  let args = Args::parse();
@@ -399,12 +416,25 @@ fn main() {
 
   let mut input_line = String::new();
 
+  let excluded_files = create_hash_set_from_excluded_files( args.clone());
+
+  'w:
   while let Ok(nchars) = stdin().read_line(&mut input_line) {
 
    if 0 == nchars { break } // ^D
    input_line.pop(); // remove \n 
 
-   if interpreter.interpret( args.expression.clone(), &PathBuf::from(input_line.clone()))
+   let path = PathBuf::from(input_line.clone());
+
+   for excluded_file in &excluded_files {
+    if path.starts_with( excluded_file) {
+     input_line.clear(); // TODO : verbessern
+     continue 'w
+    }
+   }
+   
+
+   if interpreter.interpret( args.expression.clone(), &path)
    {
     println!("{}", input_line);
    }
@@ -436,18 +466,12 @@ fn main() {
 
   let mut tree_walk = treewalk::TreeWalk::new( path);
 
-  if let Some( cut_log) = args.debug_log_cuts_file {
+  if let &Some( ref cut_log) = &args.debug_log_cuts_file {
    tree_walk.cut_log = Some( LineWriter::new( File::create( cut_log).unwrap()));
   }
 
   {
-   args.exclude_from_file.clone().iter()
-    .map( |fname| {
-     let s = read_to_string( fname).unwrap_or_else( | _ | { eprintln!("cannot open file: ''{}''", fname); exit( 1);});
-     let excluded_filenames = s.split( | c | { c == '\n' || c == '\r'} );
-     excluded_filenames.for_each( | k | { tree_walk.insert_excluded_filename( PathBuf::from( k.trim())); });
-    })
-    .for_each( | _k | () );
+    tree_walk.excluded_files = create_hash_set_from_excluded_files( args.clone());
   }
 
   loop {

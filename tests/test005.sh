@@ -4,6 +4,11 @@ echo "$LINENO"
 diff <( "$BINARY" -p space/ --exclude-from-file <( echo space/b/e) | sort ) \
      <( find space/ | grep -v '^space/b/e'| sort )
 
+echo "$LINENO"
+
+diff <( find space/ | "$BINARY" --files-from-stdin --exclude-from-file <( echo space/b/e) ) \
+     <( find space/ | grep -v '^space/b/e' )
+
 # diff <( "$BINARY" -p space/ -e 'isempty') \
 #      <( find space/ -empty)
 

@@ -13,7 +13,7 @@ pub struct TreeWalk
 {
  path : VecDeque<PathBuf>,
  next_dir : Option<PathBuf>,
- excluded_files : HashSet<PathBuf>, // darf nicht mit ./ beginnen
+ pub excluded_files : HashSet<PathBuf>, // darf nicht mit ./ beginnen
  pub cut_log : Option<LineWriter<File>>,
 }
 
@@ -27,10 +27,6 @@ impl TreeWalk {
  }
  pub fn inject( &mut self, path : PathBuf) {
   self.path.push_back( path);
- }
- pub fn insert_excluded_filename( &mut self, fname : PathBuf) {
-  if PathBuf::from( "") == fname { return } // sonderfall vom splitten
-  self.excluded_files.insert( fname);
  }
 }
 
