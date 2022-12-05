@@ -177,9 +177,11 @@ struct Interpreter {
 
 trait PathBufTrait {
  fn is_empty( &self ) -> bool;
+ fn is_readonly( &self ) -> bool;
 }
 
 impl PathBufTrait for PathBuf {
+
  fn is_empty( &self) -> bool { 
   if self.is_file() {
    match metadata( self) {
@@ -192,6 +194,14 @@ impl PathBufTrait for PathBuf {
    false
   }
  }
+
+ fn is_readonly( &self) -> bool {
+  match metadata( self) {
+   Ok( md) => md.permissions().readonly(),
+   _ => false,
+  }
+ }
+
 }
 
 impl Interpreter {
@@ -215,6 +225,7 @@ impl Interpreter {
      "islink" => state.path.unwrap().is_symlink(),
      "exists" => state.path.unwrap().exists(),
      "isempty" => state.path.unwrap().is_empty(),
+     "isreadonly" => state.path.unwrap().is_readonly(),
      _ => panic!( "{}", "not implemented3 : ".to_string() + atom),
    }},
 
@@ -367,6 +378,7 @@ impl Interpreter {
     "islink0" => { state.path.unwrap().is_symlink() && cont( 1) },
     "exists0" => { state.path.unwrap().exists() && cont( 1) },
     "isempty0" => { state.path.unwrap().is_empty() && cont( 1) },
+    "isreadonly0" => { state.path.unwrap().is_readonly() && cont( 1) },
     _ => panic!("not implemented: ''{}''", atom),
    }
   } else {
