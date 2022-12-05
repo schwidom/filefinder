@@ -6,7 +6,6 @@ extern crate sexp;
 use sexp::Sexp;
 use sexp::Atom;
 
-use std::path::Path;
 use std::path::PathBuf;
 
 use std::process::exit;
@@ -26,9 +25,11 @@ use std::fs::metadata;
 
 extern crate regex;
 
+/*
 fn get_type_of<T>(_: &T) -> String {
     format!("{}", std::any::type_name::<T>())
 }
+*/
 
 #[path = "treewalk.rs"]
 mod treewalk;
@@ -61,11 +62,6 @@ struct Args {
  files_from_stdin : bool,
 }
 
-fn runtests() {
- treewalk::tests();
-}
-
-
 trait SexpOrVec {}
 
 // impl SexpOrVec for Sexp {}
@@ -88,7 +84,6 @@ struct TreeWalkMethods{
 }
 
 impl TreeWalkMethods {
- fn new() -> TreeWalkMethods { TreeWalkMethods::default()}
  fn cut( &mut self) { self.cutted = true;}
  fn uncut( &mut self) { self.cutted = false;}
  fn inject( &mut self, path : &PathBuf) { self.injected.push_back( path.clone());}

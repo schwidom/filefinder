@@ -1,10 +1,8 @@
 
 use std::path::PathBuf;
 use std::fs::read_dir;
-use std::fs::ReadDir;
 use std::collections::VecDeque;
 use std::collections::HashSet;
-use std::process::exit;
 use std::io::LineWriter;
 use std::fs::File;
 use std::io::Write; // write_fmt
@@ -18,10 +16,14 @@ pub struct TreeWalk
 }
 
 impl TreeWalk {
+ #[allow(unused)]
  pub fn new( path : PathBuf) -> Self { TreeWalk{ path : VecDeque::from([path]), next_dir : None, excluded_files : HashSet::new(), cut_log : None }}
  pub fn cut( &mut self) { 
   if let &mut Some( ref mut cut_log) = &mut self.cut_log {
-   cut_log.write_fmt( format_args!( "cut: {:?}\n", self.next_dir));
+   match cut_log.write_fmt( format_args!( "cut: {:?}\n", self.next_dir)) {
+    Err(e) => panic!("{:?}", e),
+    _ => (),
+   }
   }
   self.next_dir = None;
  }
@@ -59,33 +61,6 @@ impl Iterator for TreeWalk {
   }
 
   ret
- }
-}
-
-// TODO : create os independend test directory
-pub fn tests() {
-
- {
-  let tw = TreeWalk::new( PathBuf::from( "/home/ox/tmp/2022_11_25_find_exec_test"));
-  for x in tw { 
-   println!("{}", x.display());
-  }
- }
-
- println!();
-
- {
-  let mut tw = TreeWalk::new( PathBuf::from( "/home/ox/tmp/2022_11_25_find_exec_test"));
-  loop { 
-   match tw.next() {
-
-    Some( x) => {
-      println!("{}", x.display());
-      if x == PathBuf::from( "/home/ox/tmp/2022_11_25_find_exec_test/b") { tw.cut();}
-     } ,
-    None => break
-   }
-  }
  }
 }
 
