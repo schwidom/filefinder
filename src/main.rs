@@ -68,12 +68,10 @@ fn runtests() {
 
 trait SexpOrVec {}
 
-impl SexpOrVec for Sexp {}
-// impl SexpOrVec for Vec<Sexp> {}
+// impl SexpOrVec for Sexp {}
 impl SexpOrVec for &[Sexp] {} // slice
 impl SexpOrVec for &Sexp {}
 // impl SexpOrVec for Vec<Sexp> {}
-impl SexpOrVec for &&[Sexp] {} // slice
 
 #[derive(Debug,Clone)]
 struct State<'a,T> where T : SexpOrVec {
