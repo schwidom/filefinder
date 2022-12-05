@@ -71,6 +71,9 @@ trait SexpOrVec {}
 impl SexpOrVec for Sexp {}
 // impl SexpOrVec for Vec<Sexp> {}
 impl SexpOrVec for &[Sexp] {} // slice
+impl SexpOrVec for &Sexp {}
+// impl SexpOrVec for Vec<Sexp> {}
+impl SexpOrVec for &&[Sexp] {} // slice
 
 #[derive(Debug,Clone)]
 struct State<'a,T> where T : SexpOrVec {
@@ -208,7 +211,7 @@ impl Interpreter {
 
  fn new() -> Self { Interpreter::default() }
 
- fn interpret_term( &mut self, state : State<Sexp>) -> bool {
+ fn interpret_term( &mut self, state : &State<&Sexp>) -> bool {
 
   match &state.stmt {
 
@@ -230,7 +233,7 @@ impl Interpreter {
    }},
 
    Sexp::List( list) => {
-    self.interpret_slice( State::<&[Sexp]>{ stmt : &list[..], path : state.path })
+    self.interpret_slice( &State::<&[Sexp]>{ stmt : &list[..], path : state.path })
    },
 
    _ => panic!("not implemented4")
@@ -238,18 +241,18 @@ impl Interpreter {
  }
 
  fn cont2( &mut self, i : usize, state : &State<&[Sexp]>) -> bool {
-  self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ i..] , path : state.path })
+  self.interpret_slice( &State::<&[Sexp]>{ stmt : &state.stmt[ i..] , path : state.path })
  }
 
  fn cont3( &mut self, i : usize, state : &State<&[Sexp]>, path : Option<&PathBuf>) -> bool {
-  self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ i..] , path : path })
+  self.interpret_slice( &State::<&[Sexp]>{ stmt : &state.stmt[ i..] , path : path })
  }
 
- fn interpret_slice( &mut self, state : State<&[Sexp]>) -> bool {
+ fn interpret_slice( &mut self, state : &State<&[Sexp]>) -> bool {
   if state.stmt.is_empty() { return true;}
 
   let mut cont = | i : usize | -> bool { 
-   self.interpret_slice( State::<&[Sexp]>{ stmt : &state.stmt[ i..] , path : state.path }) 
+   self.interpret_slice( &State::<&[Sexp]>{ stmt : &state.stmt[ i..] , path : state.path }) 
   };
 
   if let Sexp::Atom(Atom::S( atom)) = &state.stmt[0] {
@@ -261,13 +264,13 @@ impl Interpreter {
     "t0" => { cont( 1); true },
     "f0" => { cont( 1); false },
     "or0" => state.stmt[1..].iter().fold( false, 
-     | i, k | i || self.interpret_term( State::<Sexp>{ stmt : k.clone(), path : state.path })
+     | i, k | i || self.interpret_term( &State::<&Sexp>{ stmt : &k, path : state.path })
     ),
     "and0" => state.stmt[1..].iter().fold( true, 
-     | i, k | i && self.interpret_term( State::<Sexp>{ stmt : k.clone(), path : state.path })
+     | i, k | i && self.interpret_term( &State::<&Sexp>{ stmt : &k, path : state.path })
     ),
     "progn0" => state.stmt[1..].iter().fold( true, 
-     | _i, k |  self.interpret_term( State::<Sexp>{ stmt : k.clone(), path : state.path })
+     | _i, k |  self.interpret_term( &State::<&Sexp>{ stmt : k, path : state.path })
     ),
     "not0" => { ! cont( 1) }, 
     "do0" => { cont( 1) },
@@ -333,16 +336,6 @@ impl Interpreter {
        },
        _ => panic!("error in {}: string or command expected", atom)
       }
-
-/*
-      if let Sexp::Atom( Atom::S(path)) = &state.stmt[1] { // TODO : error handling
-       let mut newpath = state.path.unwrap_or_else( || panic!("no current path given")).clone();
-       newpath.push(PathBuf::from(path));
-       self.cont3( 2, &state, Some( &newpath))
-      } else { 
-       panic!("error in {}: string expected", atom)
-      }
-*/
     },
     "inback0" => {
       let mut newpath = state.path.unwrap_or_else( || panic!("no current path given")).clone();
@@ -386,20 +379,20 @@ impl Interpreter {
   }
  }
 
- fn interpret( &mut self, v : Vec<String>, path : &PathBuf) -> bool {
+ fn interpret( &mut self, v : &Vec<String>, path : &PathBuf) -> bool {
   v.iter() 
    .map( | exp | sexp::parse( exp.as_str()).unwrap())
-   .map( | stmt | self.interpret_term( State{ path: Some( &path ), stmt: stmt}))
+   .map( | stmt | self.interpret_term( &State{ path: Some( &path ), stmt: &stmt}))
    .fold( true, | accu, res | accu && res)
  }
 
  fn interpret2( &mut self, stmt : &[Sexp], path : &PathBuf) -> bool {
-  self.interpret_slice( State::<&[Sexp]>{ path: Some( &path ), stmt: stmt}) // TODO : State{ stmt : &T}
+  self.interpret_slice( &State::<&[Sexp]>{ path: Some( &path ), stmt: stmt}) // TODO : State{ stmt : &T}
  }
 
 }
 
-fn create_hash_set_from_excluded_files( args : Args) -> HashSet<PathBuf> {
+fn create_hash_set_from_excluded_files( args : &Args) -> HashSet<PathBuf> {
 
  let mut ret : HashSet<PathBuf> = HashSet::new(); // darf nicht mit ./ beginnen
 
@@ -428,7 +421,7 @@ fn main() {
 
   let mut input_line = String::new();
 
-  let excluded_files = create_hash_set_from_excluded_files( args.clone());
+  let excluded_files = create_hash_set_from_excluded_files( &args);
 
   'w:
   while let Ok(nchars) = stdin().read_line(&mut input_line) {
@@ -446,7 +439,7 @@ fn main() {
    }
    
 
-   if interpreter.interpret( args.expression.clone(), &path)
+   if interpreter.interpret( &args.expression, &path)
    {
     println!("{}", input_line);
    }
@@ -465,7 +458,7 @@ fn main() {
   
   let path = PathBuf::from( args.path.unwrap());
 
-  if interpreter.interpret( args.expression.clone(), &path) {
+  if interpreter.interpret( &args.expression, &path) {
    println!("true");
   }
   else
@@ -483,7 +476,7 @@ fn main() {
   }
 
   {
-    tree_walk.excluded_files = create_hash_set_from_excluded_files( args.clone());
+    tree_walk.excluded_files = create_hash_set_from_excluded_files( &args);
   }
 
   loop {
@@ -494,7 +487,7 @@ fn main() {
 
     Some( path) => {
 
-     if interpreter.interpret( args.expression.clone(), &path) {
+     if interpreter.interpret( &args.expression, &path) {
       println!("{}", path.display());
      }
 
