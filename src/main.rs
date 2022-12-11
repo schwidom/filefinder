@@ -72,7 +72,7 @@ impl SexpOrVec for &Sexp {}
 #[derive(Debug,Clone)]
 struct State<'a,T> where T : SexpOrVec {
  // help : bool,
- path : Option<&'a PathBuf>,
+ path : &'a PathBuf,
  stmt : T, // Sexp | Vec<Sexp>
 }
 
@@ -215,13 +215,13 @@ impl Interpreter {
      "f" => false,
      "cut" => { self.tree_walk_methods.cut(); true},
      "uncut" => { self.tree_walk_methods.uncut(); true},
-     "inject" => { if let Some( path) = state.path { self.tree_walk_methods.inject(path);} true},
-     "isdir" => state.path.unwrap().is_dir(),
-     "isfile" => state.path.unwrap().is_file(),
-     "islink" => state.path.unwrap().is_symlink(),
-     "exists" => state.path.unwrap().exists(),
-     "isempty" => state.path.unwrap().is_empty(),
-     "isreadonly" => state.path.unwrap().is_readonly(),
+     "inject" => { self.tree_walk_methods.inject(state.path); true},
+     "isdir" => state.path.is_dir(),
+     "isfile" => state.path.is_file(),
+     "islink" => state.path.is_symlink(),
+     "exists" => state.path.exists(),
+     "isempty" => state.path.is_empty(),
+     "isreadonly" => state.path.is_readonly(),
      _ => panic!( "{}", "not implemented3 : ".to_string() + atom),
    }},
 
@@ -237,7 +237,7 @@ impl Interpreter {
   self.interpret_slice( &State::<&[Sexp]>{ stmt : &state.stmt[ i..] , path : state.path })
  }
 
- fn cont3( &mut self, i : usize, state : &State<&[Sexp]>, path : Option<&PathBuf>) -> bool {
+ fn cont3( &mut self, i : usize, state : &State<&[Sexp]>, path : &PathBuf) -> bool {
   self.interpret_slice( &State::<&[Sexp]>{ stmt : &state.stmt[ i..] , path : path })
  }
 
@@ -305,19 +305,19 @@ impl Interpreter {
 
       match &state.stmt[1] {
        Sexp::Atom( Atom::S(path)) => {
-        let mut newpath = state.path.unwrap_or_else( || panic!("no current path given")).clone();
+        let mut newpath = state.path.clone();
         newpath.push(PathBuf::from(path));
-        self.cont3( 2, &state, Some( &newpath))
+        self.cont3( 2, &state, &newpath)
        },
        Sexp::List( stmt) => {
         // let mut interpreter = Interpreter::new(); // TODO : brauche ich einen neuen interpreter?
         let mut res : bool = false;
-        if let Ok( direntries) = state.path.unwrap().read_dir() { 
+        if let Ok( direntries) = state.path.read_dir() { 
          for direntry in direntries {
           let path = direntry.unwrap().path();
           if self.interpret2( stmt, &path) 
           {
-           res = self.cont3( 2, &state, Some( &path));
+           res = self.cont3( 2, &state, &path);
            break;
           }
          }
@@ -331,40 +331,40 @@ impl Interpreter {
       }
     },
     "inback0" => {
-      let mut newpath = state.path.unwrap_or_else( || panic!("no current path given")).clone();
+      let mut newpath = state.path.clone();
       newpath.pop();
-      self.cont3( 1, &state, Some( &newpath))
+      self.cont3( 1, &state, &newpath)
     },
     "dirname1" => { 
-      self.comparator.cmp( &state.stmt[1], state.path.unwrap().parent().unwrap().as_os_str()) &&
+      self.comparator.cmp( &state.stmt[1], state.path.parent().unwrap().as_os_str()) &&
       self.cont2( 2, &state)
     }, 
     "path1" => { 
-       self.comparator.cmp( &state.stmt[1], state.path.unwrap().as_os_str()) &&
+       self.comparator.cmp( &state.stmt[1], state.path.as_os_str()) &&
        self.cont2( 2, &state)
     }, 
     "basename1" => { 
-      self.comparator.cmp( &state.stmt[1], state.path.unwrap().file_name().unwrap()) &&
+      self.comparator.cmp( &state.stmt[1], state.path.file_name().unwrap()) &&
       self.cont2( 2, &state)
     }, 
     "filestem1" => { 
-      self.comparator.cmp( &state.stmt[1], state.path.unwrap().file_stem().unwrap()) &&
+      self.comparator.cmp( &state.stmt[1], state.path.file_stem().unwrap()) &&
       self.cont2( 2, &state)
     }, 
     "extension1" => { 
-      if let Some( ext) = state.path.unwrap().extension() {
+      if let Some( ext) = state.path.extension() {
        self.comparator.cmp( &state.stmt[1], ext) &&
        self.cont2( 2, &state)
       } else {
        false
       }
     }, 
-    "isdir0" => { state.path.unwrap().is_dir() && cont( 1) },
-    "isfile0" => { state.path.unwrap().is_file() && cont( 1) },
-    "islink0" => { state.path.unwrap().is_symlink() && cont( 1) },
-    "exists0" => { state.path.unwrap().exists() && cont( 1) },
-    "isempty0" => { state.path.unwrap().is_empty() && cont( 1) },
-    "isreadonly0" => { state.path.unwrap().is_readonly() && cont( 1) },
+    "isdir0" => { state.path.is_dir() && cont( 1) },
+    "isfile0" => { state.path.is_file() && cont( 1) },
+    "islink0" => { state.path.is_symlink() && cont( 1) },
+    "exists0" => { state.path.exists() && cont( 1) },
+    "isempty0" => { state.path.is_empty() && cont( 1) },
+    "isreadonly0" => { state.path.is_readonly() && cont( 1) },
     _ => panic!("not implemented: ''{}''", atom),
    }
   } else {
@@ -375,12 +375,12 @@ impl Interpreter {
  fn interpret( &mut self, v : &Vec<String>, path : &PathBuf) -> bool {
   v.iter() 
    .map( | exp | sexp::parse( exp.as_str()).unwrap())
-   .map( | stmt | self.interpret_term( &State{ path: Some( &path ), stmt: &stmt}))
+   .map( | stmt | self.interpret_term( &State{ path: &path, stmt: &stmt}))
    .fold( true, | accu, res | accu && res)
  }
 
  fn interpret2( &mut self, stmt : &[Sexp], path : &PathBuf) -> bool {
-  self.interpret_slice( &State::<&[Sexp]>{ path: Some( &path ), stmt: stmt}) // TODO : State{ stmt : &T}
+  self.interpret_slice( &State::<&[Sexp]>{ path: &path, stmt: stmt}) // TODO : State{ stmt : &T}
  }
 
 }
