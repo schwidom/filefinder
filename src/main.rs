@@ -25,6 +25,8 @@ use std::fs::metadata;
 
 extern crate regex;
 
+extern crate strfmt;
+
 /*
 fn get_type_of<T>(_: &T) -> String {
     format!("{}", std::any::type_name::<T>())
@@ -60,6 +62,9 @@ struct Args {
 
  #[arg(long)]
  files_from_stdin : bool,
+
+ #[arg(long)]
+ format : Option<String>,
 }
 
 trait SexpOrVec {}
@@ -111,18 +116,6 @@ struct Comparator {
   regex_map : HashMap<String,regex::Regex>,
 }
 
-impl ComparatorTrait<&String> for Comparator {
- fn cmp( &mut self, s1 : &Sexp, s2 : &String) -> bool
- {
-  // if let Sexp::Atom( Atom::S(path)) = &state.stmt[1]
-
-  match s1 {
-   Sexp::Atom( Atom::S( value1)) => value1 == s2,
-   _ => panic!(),
-  }
- }
-}
-
 impl Comparator {
  fn handle_regex( &mut self, regex_stmt : & Vec<Sexp>, subject_str : &String) -> bool {
 
@@ -164,6 +157,17 @@ impl ComparatorTrait<&OsStr> for Comparator {
  }
 }
 
+impl ComparatorTrait<&String> for Comparator {
+ fn cmp( &mut self, s1 : &Sexp, s2 : &String) -> bool
+ {
+  match s1 {
+   Sexp::Atom( Atom::S( value1)) => value1 == s2,
+   Sexp::List( stmt) => self.handle_regex( &stmt, &s2),
+   _ => panic!(),
+  }
+ }
+}
+
 #[derive(Default)]
 struct Interpreter {
  tree_walk_methods : TreeWalkMethods,
@@ -174,6 +178,15 @@ struct Interpreter {
 trait PathBufTrait {
  fn is_empty( &self ) -> bool;
  fn is_readonly( &self ) -> bool;
+
+ // convenience methods
+ 
+ fn cm_path( &self) -> String;
+ fn cm_basename( &self) -> String;
+ fn cm_dirname( &self) -> String;
+ fn cm_filestem( &self) -> String;
+ fn cm_extension( &self) -> String;
+
 }
 
 impl PathBufTrait for PathBuf {
@@ -198,7 +211,48 @@ impl PathBufTrait for PathBuf {
   }
  }
 
+ fn cm_path( &self) -> String {
+  self.to_string_lossy().to_string()
+  // self.as_os_str().to_string_lossy().to_string()
+ }
+
+ fn cm_basename( &self) -> String {
+
+  if let Some( name) = self.file_name() {
+   return name.to_string_lossy().to_string();
+  }
+
+  return "".to_string();
+ }
+
+ fn cm_dirname( &self) -> String {
+
+  if let Some( name) = self.parent() {
+   return name.to_string_lossy().to_string();
+  }
+
+  return "".to_string();
+ }
+
+ fn cm_filestem( &self) -> String {
+
+  if let Some( name) = self.file_stem() {
+   return name.to_string_lossy().to_string();
+  }
+
+  return "".to_string();
+ }
+
+ fn cm_extension( &self) -> String {
+
+  if let Some( name) = self.extension() {
+   return name.to_string_lossy().to_string();
+  }
+
+  return "".to_string();
+ }
 }
+
 
 impl Interpreter {
 
@@ -336,28 +390,24 @@ impl Interpreter {
       self.cont3( 1, &state, &newpath)
     },
     "dirname1" => { 
-      self.comparator.cmp( &state.stmt[1], state.path.parent().unwrap().as_os_str()) &&
+      self.comparator.cmp( &state.stmt[1], &state.path.cm_dirname()) &&
       self.cont2( 2, &state)
     }, 
     "path1" => { 
-       self.comparator.cmp( &state.stmt[1], state.path.as_os_str()) &&
+       self.comparator.cmp( &state.stmt[1], &state.path.cm_path()) &&
        self.cont2( 2, &state)
     }, 
     "basename1" => { 
-      self.comparator.cmp( &state.stmt[1], state.path.file_name().unwrap()) &&
+      self.comparator.cmp( &state.stmt[1], &state.path.cm_basename()) &&
       self.cont2( 2, &state)
     }, 
     "filestem1" => { 
-      self.comparator.cmp( &state.stmt[1], state.path.file_stem().unwrap()) &&
+      self.comparator.cmp( &state.stmt[1], &state.path.cm_filestem()) &&
       self.cont2( 2, &state)
     }, 
     "extension1" => { 
-      if let Some( ext) = state.path.extension() {
-       self.comparator.cmp( &state.stmt[1], ext) &&
-       self.cont2( 2, &state)
-      } else {
-       false
-      }
+      self.comparator.cmp( &state.stmt[1], &state.path.cm_extension()) &&
+      self.cont2( 2, &state)
     }, 
     "isdir0" => { state.path.is_dir() && cont( 1) },
     "isfile0" => { state.path.is_file() && cont( 1) },
@@ -402,8 +452,39 @@ fn create_hash_set_from_excluded_files( args : &Args) -> HashSet<PathBuf> {
  ret
 }
 
+fn path_format( path : & PathBuf, re : &regex::Regex, format : &String) -> String {
+ let mut ht : HashMap<String,String> = HashMap::new();
+ for mat in re.find_iter( format) {
+  let s = mat.as_str();
+  let symbol = &s[1..s.len()-1];
+  
+  fn bool_to_string( b : bool) -> String {
+   if b { "true".to_string() } else { "false".to_string() } 
+  }
+
+  match symbol {
+   "path" => { ht.insert( "path".to_string(), path.cm_path());},
+   "basename" => { ht.insert( "basename".to_string(), path.cm_basename());},
+   "dirname" => { ht.insert( "dirname".to_string(), path.cm_dirname());},
+   "filestem" => { ht.insert( "filestem".to_string(), path.cm_filestem());},
+   "extension" => { ht.insert( "extension".to_string(), path.cm_extension());},
+   "isdir" => {      ht.insert( "isdir".to_string(), bool_to_string( path.is_dir()));},
+   "isfile" => {     ht.insert( "isfile".to_string(), bool_to_string( path.is_file()));},
+   "islink" => {     ht.insert( "islink".to_string(), bool_to_string( path.is_symlink()));},
+   "exists" => {     ht.insert( "exists".to_string(), bool_to_string( path.exists()));},
+   "isempty" => {    ht.insert( "isempty".to_string(), bool_to_string( path.is_empty()));},
+   "isreadonly" => { ht.insert( "isreadonly".to_string(), bool_to_string( path.is_readonly()));},
+
+   _ => (),
+  }
+ }
+ strfmt::strfmt( &format.as_str(), &ht).unwrap()
+}
+
 fn main() {
  
+ let re = regex::Regex::new( r#"\{[^{]+\}"#).unwrap();
+
  let args = Args::parse();
 
  let mut interpreter = Interpreter::new(); // vr9e9deprc 
@@ -434,7 +515,11 @@ fn main() {
 
    if interpreter.interpret( &args.expression, &path)
    {
-    println!("{}", input_line);
+    if let Some( format) = &args.format {
+     println!("{}", path_format( &path, &re, &format));
+    } else {
+     println!("{}", path.display());
+    }
    }
 
    input_line.clear();
@@ -452,14 +537,22 @@ fn main() {
   let path = PathBuf::from( args.path.unwrap());
 
   if interpreter.interpret( &args.expression, &path) {
-   println!("true");
+   print!("true");
   }
   else
   {
-   println!("false");
+   print!("false");
   }
+
+  if let Some( format) = &args.format {
+   println!(" {}", path_format( &path, &re, &format));
+  } else {
+   println!();
+  }
+
+  exit( 0);
  }
- else 
+ 
  {
 
   let mut tree_walk = treewalk::TreeWalk::new( path);
@@ -481,7 +574,12 @@ fn main() {
     Some( path) => {
 
      if interpreter.interpret( &args.expression, &path) {
-      println!("{}", path.display());
+ 
+      if let Some( format) = &args.format {
+       println!("{}", path_format( &path, &re, &format));
+      } else {
+       println!("{}", path.display());
+      }
      }
 
     },
