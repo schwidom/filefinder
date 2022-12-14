@@ -119,21 +119,40 @@ struct Comparator {
 }
 
 impl Comparator {
- fn handle_regex( &mut self, regex_stmt : & Vec<Sexp>, subject_str : &String) -> bool {
 
-  if 2 == regex_stmt.len() && Sexp::Atom( Atom::S( "regex1".to_string())) == regex_stmt[0] {
-   if let Sexp::Atom( Atom::S( regex_str)) = &regex_stmt[1] {
+ // TODO : and1, or1 für zb. (basename1 (or1 a b)) oder (basename1 (and (startswith1 a) (endswith1 b)))
+ // cont variation (basename1 (startswith1 a endswith1 b))
 
-    if ! self.regex_map.contains_key( regex_str) { 
-     self.regex_map.insert( regex_str.clone(), regex::Regex::new(regex_str.as_str()).unwrap());
+ fn handle_cmp_list( &mut self, regex_stmt : & Vec<Sexp>, subject_str : &String) -> bool {
+
+  if 2 != regex_stmt.len() { panic!("1d3lfj12hl");}
+
+  // TODO : check if it is a number
+
+  if let Sexp::Atom( Atom::S( command)) = &regex_stmt[0] {
+   if let Sexp::Atom( Atom::S( parameter)) = &regex_stmt[1] {
+    match command.as_str() {
+     "regex1" => {
+      if ! self.regex_map.contains_key( parameter) { 
+       self.regex_map.insert( parameter.clone(), regex::Regex::new(parameter.as_str()).unwrap());
+      }
+
+      let regex = &self.regex_map[parameter]; // copy
+
+      return regex.is_match( subject_str.as_str());
+     },
+     "startswith1" => { return subject_str.starts_with( parameter);}
+     "endswith1" => { return subject_str.ends_with( parameter);}
+     "contains1" => { return subject_str.find( parameter) != None;}
+     "<1" => { return subject_str < parameter;}
+     ">1" => { return subject_str > parameter;}
+     "<=1" => { return subject_str <= parameter;}
+     ">=1" => { return subject_str >= parameter;}
+     _ => panic!("unknown comparison operator {}", command),
     }
-
-    let regex = &self.regex_map[regex_str]; // copy
-
-    return regex.is_match( subject_str.as_str())
-   }
+   }  
   }
-  panic!();
+  panic!("did not match {:?}", &regex_stmt[0]) // e.g. when it is a number
  }
 }
 
@@ -142,7 +161,7 @@ impl ComparatorTrait<&OsString> for Comparator {
  {
   match s1 {
    Sexp::Atom( Atom::S( value1)) => &OsString::from( value1) == s2,
-   Sexp::List( stmt) => self.handle_regex( &stmt, &s2.to_string_lossy().to_string()),
+   Sexp::List( stmt) => self.handle_cmp_list( &stmt, &s2.to_string_lossy().to_string()),
    _ => panic!(),
   }
  }
@@ -153,7 +172,7 @@ impl ComparatorTrait<&OsStr> for Comparator {
  {
   match s1 {
    Sexp::Atom( Atom::S( value1)) => &OsString::from( value1) == s2,
-   Sexp::List( stmt) => self.handle_regex( &stmt, &s2.to_string_lossy().to_string()),
+   Sexp::List( stmt) => self.handle_cmp_list( &stmt, &s2.to_string_lossy().to_string()),
    _ => panic!(),
   }
  }
@@ -164,7 +183,7 @@ impl ComparatorTrait<&String> for Comparator {
  {
   match s1 {
    Sexp::Atom( Atom::S( value1)) => value1 == s2,
-   Sexp::List( stmt) => self.handle_regex( &stmt, &s2),
+   Sexp::List( stmt) => self.handle_cmp_list( &stmt, &s2),
    _ => panic!(),
   }
  }
@@ -442,6 +461,18 @@ impl Interpreter {
     }, 
     "extension1" => { 
       self.comparator.cmp( &state.stmt[1], &state.path.cm_extension()) &&
+      self.cont2( 2, &state)
+    }, 
+    "atime1" => { 
+      self.comparator.cmp( &state.stmt[1], &state.path.cm_atime()) &&
+      self.cont2( 2, &state)
+    }, 
+    "ctime1" => { 
+      self.comparator.cmp( &state.stmt[1], &state.path.cm_ctime()) &&
+      self.cont2( 2, &state)
+    }, 
+    "mtime1" => { 
+      self.comparator.cmp( &state.stmt[1], &state.path.cm_mtime()) &&
       self.cont2( 2, &state)
     }, 
     "isdir0" => { state.path.is_dir() && cont( 1) },

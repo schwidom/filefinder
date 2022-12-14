@@ -1,4 +1,4 @@
-filefinder 1.4.0
+filefinder 1.5.0
 ./test001.sh
 3
 8
@@ -61,4 +61,4 @@ filefinder 1.4.0
 35
 132
 done (don't forget to check)
-filefinder 1.4.0
+filefinder 1.5.0
