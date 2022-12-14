@@ -27,6 +27,8 @@ extern crate regex;
 
 extern crate strfmt;
 
+extern crate chrono;
+
 /*
 fn get_type_of<T>(_: &T) -> String {
     format!("{}", std::any::type_name::<T>())
@@ -186,7 +188,9 @@ trait PathBufTrait {
  fn cm_dirname( &self) -> String;
  fn cm_filestem( &self) -> String;
  fn cm_extension( &self) -> String;
-
+ fn cm_atime( &self) -> String;
+ fn cm_ctime( &self) -> String;
+ fn cm_mtime( &self) -> String;
 }
 
 impl PathBufTrait for PathBuf {
@@ -251,6 +255,37 @@ impl PathBufTrait for PathBuf {
 
   return "".to_string();
  }
+
+ fn cm_atime( &self) -> String {
+  if let Ok( md) = metadata( self) {
+   if let Ok(time) = md.accessed() {
+    let dt = chrono::DateTime::<chrono::offset::Local>::from( time);
+    return dt.to_string();
+   }
+  }
+  "".to_string()
+ }
+
+ fn cm_ctime( &self) -> String {
+  if let Ok( md) = metadata( self) {
+   if let Ok(time) = md.created() {
+    let dt = chrono::DateTime::<chrono::offset::Local>::from( time);
+    return dt.to_string();
+   }
+  }
+  "".to_string()
+ }
+
+ fn cm_mtime( &self) -> String {
+  if let Ok( md) = metadata( self) {
+   if let Ok(time) = md.modified() {
+    let dt = chrono::DateTime::<chrono::offset::Local>::from( time);
+    return dt.to_string();
+   }
+  }
+  "".to_string()
+ }
+
 }
 
 
@@ -474,6 +509,9 @@ fn path_format( path : & PathBuf, re : &regex::Regex, format : &String) -> Strin
    "exists" => {     ht.insert( "exists".to_string(), bool_to_string( path.exists()));},
    "isempty" => {    ht.insert( "isempty".to_string(), bool_to_string( path.is_empty()));},
    "isreadonly" => { ht.insert( "isreadonly".to_string(), bool_to_string( path.is_readonly()));},
+   "atime" => { ht.insert( "atime".to_string(), path.cm_atime());},
+   "ctime" => { ht.insert( "ctime".to_string(), path.cm_ctime());},
+   "mtime" => { ht.insert( "mtime".to_string(), path.cm_mtime());},
 
    _ => (),
   }
