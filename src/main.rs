@@ -120,18 +120,36 @@ struct Comparator {
 
 impl Comparator {
 
- // TODO : and1, or1 für zb. (basename1 (or1 a b)) oder (basename1 (and (startswith1 a) (endswith1 b)))
+ // TODO : and0, or0 für zb. (basename1 (or0 a b)) oder (basename1 (and0 (startswith1 a) (endswith1 b)))
  // cont variation (basename1 (startswith1 a endswith1 b))
 
- fn handle_cmp_list( &mut self, regex_stmt : & Vec<Sexp>, subject_str : &String) -> bool {
+ fn handle_cmp_term( &mut self, sexp : &Sexp, subject_str : &String) -> bool {
+  match &sexp {
+   Sexp::List( stmt) => self.handle_cmp_list( stmt, subject_str),
+   _ => panic!("not implemented6"),
+  }
+ }
 
-  if 2 != regex_stmt.len() { panic!("1d3lfj12hl");}
+ fn handle_cmp_list( &mut self, stmt : &[Sexp], subject_str : &String) -> bool {
+
+  if 0 == stmt.len() { return true;}
 
   // TODO : check if it is a number
 
-  if let Sexp::Atom( Atom::S( command)) = &regex_stmt[0] {
-   if let Sexp::Atom( Atom::S( parameter)) = &regex_stmt[1] {
-    match command.as_str() {
+  if let Sexp::Atom( Atom::S( command)) = &stmt[0] {
+
+   if let Some( res) = match command.as_str() {
+    "and0" => Some( stmt[1..].iter().fold( true, | accu, value | accu && self.handle_cmp_term( &value, &subject_str))),
+    "or0" => Some( stmt[1..].iter().fold( false, | accu, value | accu || self.handle_cmp_term( &value, &subject_str))),
+    "not0" => Some( ! self.handle_cmp_list( &stmt[1..], subject_str)),
+    _ => None,
+   } { return res;}
+
+   if 1 == stmt.len() { panic!("no parameter to command {}", &stmt[0])}
+
+   if let Sexp::Atom( Atom::S( parameter)) = &stmt[1] {
+
+    return match command.as_str() {
      "regex1" => {
       if ! self.regex_map.contains_key( parameter) { 
        self.regex_map.insert( parameter.clone(), regex::Regex::new(parameter.as_str()).unwrap());
@@ -141,18 +159,18 @@ impl Comparator {
 
       return regex.is_match( subject_str.as_str());
      },
-     "startswith1" => { return subject_str.starts_with( parameter);}
-     "endswith1" => { return subject_str.ends_with( parameter);}
-     "contains1" => { return subject_str.find( parameter) != None;}
-     "<1" => { return subject_str < parameter;}
-     ">1" => { return subject_str > parameter;}
-     "<=1" => { return subject_str <= parameter;}
-     ">=1" => { return subject_str >= parameter;}
+     "startswith1" => { subject_str.starts_with( parameter)}
+     "endswith1" => { subject_str.ends_with( parameter)}
+     "contains1" => { subject_str.find( parameter) != None}
+     "<1" => { subject_str < parameter}
+     ">1" => { subject_str > parameter}
+     "<=1" => { subject_str <= parameter}
+     ">=1" => { subject_str >= parameter}
      _ => panic!("unknown comparison operator {}", command),
-    }
+    } && self.handle_cmp_list( &stmt[2..], &subject_str);
    }  
   }
-  panic!("did not match {:?}", &regex_stmt[0]) // e.g. when it is a number
+  panic!("did not match {:?}", &stmt[0]) // e.g. when it is a number
  }
 }
 
