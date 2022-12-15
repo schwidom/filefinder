@@ -418,7 +418,6 @@ impl Interpreter {
         self.cont3( 2, &state, &newpath)
        },
        Sexp::List( stmt) => {
-        // let mut interpreter = Interpreter::new(); // TODO : brauche ich einen neuen interpreter?
         let mut res : bool = false;
         if let Ok( direntries) = state.path.read_dir() { 
          for direntry in direntries {
