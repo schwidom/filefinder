@@ -67,6 +67,10 @@ struct Args {
 
  #[arg(long)]
  format : Option<String>,
+
+ #[arg(long)]
+ follow_symlinks : bool, // TODO : why does a link loop end after ./a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a ?
+
 }
 
 trait SexpOrVec {}
@@ -119,9 +123,6 @@ struct Comparator {
 }
 
 impl Comparator {
-
- // TODO : and0, or0 für zb. (basename1 (or0 a b)) oder (basename1 (and0 (startswith1 a) (endswith1 b)))
- // cont variation (basename1 (startswith1 a endswith1 b))
 
  fn handle_cmp_term( &mut self, sexp : &Sexp, subject_str : &String) -> bool {
   match &sexp {
@@ -642,6 +643,8 @@ fn main() {
  {
 
   let mut tree_walk = treewalk::TreeWalk::new( path);
+ 
+  tree_walk.follow_symlinks = args.follow_symlinks;
 
   if let &Some( ref cut_log) = &args.debug_log_cuts_file {
    tree_walk.cut_log = Some( LineWriter::new( File::create( cut_log).unwrap()));
