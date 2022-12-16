@@ -53,4 +53,60 @@ space/a/f/space
 EOF
 )
 
+echo "$LINENO"
+
+diff <(
+"$BINARY" -p "$TMPDIR" -e '(basename1 timefile.txt)' --format '{path} {size}'
+) <( cat <<EOF
+$TMPDIR/timefile.txt 0
+EOF
+)
+
+echo "$LINENO"
+
+diff <(
+"$BINARY" -p "$TMPDIR" -e '(size_string1 "0")' --format '{path} {size}'
+) <( cat <<EOF
+$TMPDIR/timefile.txt 0
+EOF
+)
+
+echo "$LINENO"
+
+diff <(
+"$BINARY" -p "$TMPDIR" -e '(size1 0)' --format '{path} {size}'
+) <( cat <<EOF
+$TMPDIR/timefile.txt 0
+EOF
+)
+
+
+echo "$LINENO"
+
+diff <(
+"$BINARY" -p "$TMPDIR" -e '(size1 (<1 1))' --format '{path} {size}'
+) <( cat <<EOF
+$TMPDIR/timefile.txt 0
+EOF
+)
+
+
+echo "$LINENO"
+
+diff <(
+"$BINARY" -p "$TMPDIR" -e '(size1 (not0 not0 <1 1))' --format '{path} {size}'
+) <( cat <<EOF
+$TMPDIR/timefile.txt 0
+EOF
+)
+
+echo "$LINENO"
+
+diff <(
+"$BINARY" -p "$TMPDIR" -e '(size1 (<1 1e0))' --format '{path} {size}'
+) <( cat <<EOF
+$TMPDIR/timefile.txt 0
+EOF
+)
+
 
