@@ -117,144 +117,45 @@ trait ComparatorTrait<T> {
  fn cmp( &mut self, s1 : &Sexp, s2 : T) -> bool;
 }
 
-#[derive(Default)]
-struct Comparator {
-  regex_map : HashMap<String,regex::Regex>,
-}
-
-impl Comparator {
-
- fn handle_cmp_term( &mut self, sexp : &Sexp, subject_str : &String) -> bool {
-  match &sexp {
-   Sexp::List( stmt) => self.handle_cmp_list( stmt, subject_str),
-   _ => panic!("list expected"),
-  }
- }
-
- fn handle_cmp_list( &mut self, stmt : &[Sexp], subject_str : &String) -> bool {
-
-  if 0 == stmt.len() { return true;}
-
-  // TODO : check if it is a number
-
-  if let Sexp::Atom( Atom::S( command)) = &stmt[0] {
-
-   if let Some( res) = match command.as_str() {
-    "and0" => Some( stmt[1..].iter().fold( true, | accu, value | accu && self.handle_cmp_term( &value, &subject_str))),
-    "or0" => Some( stmt[1..].iter().fold( false, | accu, value | accu || self.handle_cmp_term( &value, &subject_str))),
-    "not0" => Some( ! self.handle_cmp_list( &stmt[1..], subject_str)),
-    _ => None,
-   } { return res;}
-
-   if 1 == stmt.len() { panic!("no parameter to command {}", &stmt[0])}
-
-   if let Sexp::Atom( Atom::S( parameter)) = &stmt[1] {
-
-    return match command.as_str() {
-     "regex1" => {
-      if ! self.regex_map.contains_key( parameter) { 
-       self.regex_map.insert( parameter.clone(), regex::Regex::new(parameter.as_str()).unwrap());
-      }
-
-      let regex = &self.regex_map[parameter]; // copy
-
-      return regex.is_match( subject_str.as_str());
-     },
-     "startswith1" => { subject_str.starts_with( parameter)}
-     "endswith1" => { subject_str.ends_with( parameter)}
-     "contains1" => { subject_str.find( parameter) != None}
-     "<1" => { subject_str < parameter}
-     ">1" => { subject_str > parameter}
-     "<=1" => { subject_str <= parameter}
-     ">=1" => { subject_str >= parameter}
-     _ => panic!("unknown comparison operator {}", command),
-    } && self.handle_cmp_list( &stmt[2..], &subject_str);
-   }  
-  }
-  panic!("did not match {:?}", &stmt[0]) // e.g. when it is a number
- }
-
- fn handle_cmp_term_u64( &mut self, sexp : &Sexp, subject_u64 : u64) -> bool {
-  match &sexp {
-   Sexp::List( stmt) => self.handle_cmp_list_u64( stmt, subject_u64),
-   _ => panic!("list expected"),
-  }
- }
-
- fn handle_cmp_list_u64( &mut self, stmt : &[Sexp], subject_u64 : u64) -> bool {
-
-  if 0 == stmt.len() { return true;}
-
-  // TODO : check if it is a number
-
-  if let Sexp::Atom( Atom::S( command)) = &stmt[0] {
-
-   if let Some( res) = match command.as_str() {
-    "and0" => Some( stmt[1..].iter().fold( true, | accu, value | accu && self.handle_cmp_term_u64( &value, subject_u64))),
-    "or0" => Some( stmt[1..].iter().fold( false, | accu, value | accu || self.handle_cmp_term_u64( &value, subject_u64))),
-    "not0" => Some( ! self.handle_cmp_list_u64( &stmt[1..], subject_u64)),
-    _ => None,
-   } { return res;}
-
-   if 1 == stmt.len() { panic!("no parameter to command {}", &stmt[0])}
-
-   let parameter = match &stmt[1] {
-    Sexp::Atom( Atom::I( parameter)) => *parameter as u64,
-    Sexp::Atom( Atom::F( parameter)) => *parameter as u64,
-    _ => panic!("wrong type: {:?} {:?}", &stmt[0], &stmt[1]),
-   };
-
-   return match command.as_str() {
-    "<1" => { subject_u64 < parameter}
-    ">1" => { subject_u64 > parameter}
-    "<=1" => { subject_u64 <= parameter}
-    ">=1" => { subject_u64 >= parameter}
-    _ => panic!("unknown comparison operator {}", command),
-   } && self.handle_cmp_list_u64( &stmt[2..], subject_u64);
-  }
-  panic!("did not match {:?} {:?}", &stmt[0], &stmt[1]) // e.g. when it is another type
- }
-}
-
-impl ComparatorTrait<&OsString> for Comparator {
+impl ComparatorTrait<&OsString> for Interpreter {
  fn cmp( &mut self, s1 : &Sexp, s2 : &OsString) -> bool
  {
   match s1 {
    Sexp::Atom( Atom::S( value1)) => &OsString::from( value1) == s2,
-   Sexp::List( stmt) => self.handle_cmp_list( &stmt, &s2.to_string_lossy().to_string()),
+   Sexp::List( stmt) => self.interpret_cmp_list( &stmt, &s2.to_string_lossy().to_string()),
    _ => panic!(),
   }
  }
 }
 
-impl ComparatorTrait<&OsStr> for Comparator {
+impl ComparatorTrait<&OsStr> for Interpreter {
  fn cmp( &mut self, s1 : &Sexp, s2 : &OsStr) -> bool
  {
   match s1 {
    Sexp::Atom( Atom::S( value1)) => &OsString::from( value1) == s2,
-   Sexp::List( stmt) => self.handle_cmp_list( &stmt, &s2.to_string_lossy().to_string()),
+   Sexp::List( stmt) => self.interpret_cmp_list( &stmt, &s2.to_string_lossy().to_string()),
    _ => panic!(),
   }
  }
 }
 
-impl ComparatorTrait<&String> for Comparator {
+impl ComparatorTrait<&String> for Interpreter {
  fn cmp( &mut self, s1 : &Sexp, s2 : &String) -> bool
  {
   match s1 {
    Sexp::Atom( Atom::S( value1)) => value1 == s2,
-   Sexp::List( stmt) => self.handle_cmp_list( &stmt, &s2),
+   Sexp::List( stmt) => self.interpret_cmp_list( &stmt, &s2),
    _ => panic!(),
   }
  }
 }
 
-impl ComparatorTrait<u64> for Comparator {
+impl ComparatorTrait<u64> for Interpreter {
  fn cmp( &mut self, s1 : &Sexp, u : u64) -> bool
  {
   match s1 {
    Sexp::Atom( Atom::I( value1)) => (*value1 as u64) == u,
-   Sexp::List( stmt) => self.handle_cmp_list_u64( &stmt, u), // TODO
+   Sexp::List( stmt) => self.interpret_cmp_list_u64( &stmt, u), // TODO
    _ => panic!(),
   }
  }
@@ -263,8 +164,7 @@ impl ComparatorTrait<u64> for Comparator {
 #[derive(Default)]
 struct Interpreter {
  tree_walk_methods : TreeWalkMethods,
- comparator : Comparator,
- // cut_log : Option<LineWriter<File>>,
+ regex_map : HashMap<String,regex::Regex>,
 }
 
 trait PathBufTrait {
@@ -391,6 +291,97 @@ impl PathBufTrait for PathBuf {
 impl Interpreter {
 
  fn new() -> Self { Interpreter::default() }
+
+ fn interpret_cmp_term( &mut self, sexp : &Sexp, subject_str : &String) -> bool {
+  match &sexp {
+   Sexp::List( stmt) => self.interpret_cmp_list( stmt, subject_str),
+   _ => panic!("list expected"),
+  }
+ }
+
+ fn interpret_cmp_list( &mut self, stmt : &[Sexp], subject_str : &String) -> bool {
+
+  if 0 == stmt.len() { return true;}
+
+  // TODO : check if it is a number
+
+  if let Sexp::Atom( Atom::S( command)) = &stmt[0] {
+
+   if let Some( res) = match command.as_str() {
+    "and0" => Some( stmt[1..].iter().fold( true, | accu, value | accu && self.interpret_cmp_term( &value, &subject_str))),
+    "or0" => Some( stmt[1..].iter().fold( false, | accu, value | accu || self.interpret_cmp_term( &value, &subject_str))),
+    "not0" => Some( ! self.interpret_cmp_list( &stmt[1..], subject_str)),
+    _ => None,
+   } { return res;}
+
+   if 1 == stmt.len() { panic!("no parameter to command {}", &stmt[0])}
+
+   if let Sexp::Atom( Atom::S( parameter)) = &stmt[1] {
+
+    return match command.as_str() {
+     "regex1" => {
+      if ! self.regex_map.contains_key( parameter) { 
+       self.regex_map.insert( parameter.clone(), regex::Regex::new(parameter.as_str()).unwrap());
+      }
+
+      let regex = &self.regex_map[parameter]; // copy
+
+      return regex.is_match( subject_str.as_str());
+     },
+     "startswith1" => { subject_str.starts_with( parameter)}
+     "endswith1" => { subject_str.ends_with( parameter)}
+     "contains1" => { subject_str.find( parameter) != None}
+     "<1" => { subject_str < parameter}
+     ">1" => { subject_str > parameter}
+     "<=1" => { subject_str <= parameter}
+     ">=1" => { subject_str >= parameter}
+     _ => panic!("unknown comparison operator {}", command),
+    } && self.interpret_cmp_list( &stmt[2..], &subject_str);
+   }  
+  }
+  panic!("did not match {:?}", &stmt[0]) // e.g. when it is a number
+ }
+
+ fn interpret_cmp_term_u64( &mut self, sexp : &Sexp, subject_u64 : u64) -> bool {
+  match &sexp {
+   Sexp::List( stmt) => self.interpret_cmp_list_u64( stmt, subject_u64),
+   _ => panic!("list expected"),
+  }
+ }
+
+ fn interpret_cmp_list_u64( &mut self, stmt : &[Sexp], subject_u64 : u64) -> bool {
+
+  if 0 == stmt.len() { return true;}
+
+  // TODO : check if it is a number
+
+  if let Sexp::Atom( Atom::S( command)) = &stmt[0] {
+
+   if let Some( res) = match command.as_str() {
+    "and0" => Some( stmt[1..].iter().fold( true, | accu, value | accu && self.interpret_cmp_term_u64( &value, subject_u64))),
+    "or0" => Some( stmt[1..].iter().fold( false, | accu, value | accu || self.interpret_cmp_term_u64( &value, subject_u64))),
+    "not0" => Some( ! self.interpret_cmp_list_u64( &stmt[1..], subject_u64)),
+    _ => None,
+   } { return res;}
+
+   if 1 == stmt.len() { panic!("no parameter to command {}", &stmt[0])}
+
+   let parameter = match &stmt[1] {
+    Sexp::Atom( Atom::I( parameter)) => *parameter as u64,
+    Sexp::Atom( Atom::F( parameter)) => *parameter as u64,
+    _ => panic!("wrong type: {:?} {:?}", &stmt[0], &stmt[1]),
+   };
+
+   return match command.as_str() {
+    "<1" => { subject_u64 < parameter}
+    ">1" => { subject_u64 > parameter}
+    "<=1" => { subject_u64 <= parameter}
+    ">=1" => { subject_u64 >= parameter}
+    _ => panic!("unknown comparison operator {}", command),
+   } && self.interpret_cmp_list_u64( &stmt[2..], subject_u64);
+  }
+  panic!("did not match {:?} {:?}", &stmt[0], &stmt[1]) // e.g. when it is another type
+ }
 
  fn interpret_term( &mut self, state : &State<&Sexp>) -> bool {
 
@@ -522,43 +513,43 @@ impl Interpreter {
       self.cont3( 1, &state, &newpath)
     },
     "dirname1" => { 
-      self.comparator.cmp( &state.stmt[1], &state.path.cm_dirname()) &&
+      self.cmp( &state.stmt[1], &state.path.cm_dirname()) &&
       self.cont2( 2, &state)
     }, 
     "path1" => { 
-       self.comparator.cmp( &state.stmt[1], &state.path.cm_path()) &&
+       self.cmp( &state.stmt[1], &state.path.cm_path()) &&
        self.cont2( 2, &state)
     }, 
     "basename1" => { 
-      self.comparator.cmp( &state.stmt[1], &state.path.cm_basename()) &&
+      self.cmp( &state.stmt[1], &state.path.cm_basename()) &&
       self.cont2( 2, &state)
     }, 
     "filestem1" => { 
-      self.comparator.cmp( &state.stmt[1], &state.path.cm_filestem()) &&
+      self.cmp( &state.stmt[1], &state.path.cm_filestem()) &&
       self.cont2( 2, &state)
     }, 
     "extension1" => { 
-      self.comparator.cmp( &state.stmt[1], &state.path.cm_extension()) &&
+      self.cmp( &state.stmt[1], &state.path.cm_extension()) &&
       self.cont2( 2, &state)
     }, 
     "atime1" => { 
-      self.comparator.cmp( &state.stmt[1], &state.path.cm_atime()) &&
+      self.cmp( &state.stmt[1], &state.path.cm_atime()) &&
       self.cont2( 2, &state)
     }, 
     "ctime1" => { 
-      self.comparator.cmp( &state.stmt[1], &state.path.cm_ctime()) &&
+      self.cmp( &state.stmt[1], &state.path.cm_ctime()) &&
       self.cont2( 2, &state)
     }, 
     "mtime1" => { 
-      self.comparator.cmp( &state.stmt[1], &state.path.cm_mtime()) &&
+      self.cmp( &state.stmt[1], &state.path.cm_mtime()) &&
       self.cont2( 2, &state)
     }, 
     "size_string1" => { 
-      self.comparator.cmp( &state.stmt[1], &state.path.cm_size().to_string()) &&
+      self.cmp( &state.stmt[1], &state.path.cm_size().to_string()) &&
       self.cont2( 2, &state)
     }, 
     "size1" => { 
-      self.comparator.cmp( &state.stmt[1], state.path.cm_size()) &&
+      self.cmp( &state.stmt[1], state.path.cm_size()) &&
       self.cont2( 2, &state)
     }, 
     "isdir0" => { state.path.is_dir() && cont( 1) },
