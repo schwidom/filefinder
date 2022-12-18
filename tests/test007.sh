@@ -109,4 +109,22 @@ $TMPDIR/timefile.txt 0
 EOF
 )
 
+echo "$LINENO"
+
+diff <(
+"$BINARY" -p "$TMPDIR" -e '(atime1 (=1 (file2 atime '"$TMPDIR/timefile.txt"')))' --format '{path} {size}'
+) <( cat <<EOF
+$TMPDIR/timefile.txt 0
+EOF
+)
+
+echo "$LINENO"
+
+diff <(
+"$BINARY" -p "$TMPDIR" -e '(size_string1 (=1 (file2 size_string '"$TMPDIR/timefile.txt"')))' --format '{path} {size}'
+) <( cat <<EOF
+$TMPDIR/timefile.txt 0
+EOF
+)
+
 

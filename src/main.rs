@@ -299,6 +299,43 @@ impl Interpreter {
   }
  }
 
+ fn interpret_string_term_file( &mut self, stmt : &[Sexp]) -> String {
+  if 2 != stmt.len() { panic!("string command file follows fieldname and filename");}
+
+  let file = match &stmt[1] {
+   Sexp::Atom( Atom::S( filename)) => PathBuf::from( filename),
+   _ => panic!("filename must be string"),
+  };
+
+  if let Sexp::Atom( Atom::S( command)) = &stmt[0] {
+   match command.as_str() {
+    "atime" => file.cm_atime(),
+    "mtime" => file.cm_mtime(),
+    "ctime" => file.cm_ctime(),
+    "size_string" => file.cm_size().to_string(),
+    _ => panic!( "string command fieldname not implemented {}", command),
+   }
+  } else {
+   panic!("string command fieldname must be string")
+  }
+  
+ }
+
+ fn interpret_string_term( &mut self, stmt : &[Sexp]) -> String {
+  
+  if 0 == stmt.len() { panic!("string command must be nonempty list");}
+
+  let command = match &stmt[0] {
+   Sexp::Atom( Atom::S( command)) => command,
+   _ => panic!("string command not found {:?}", &stmt[0]),
+  };
+
+  match command.as_str() {
+   "file2" => self.interpret_string_term_file( &stmt[1..]),
+   _ => panic!("string command not found {}", command),
+  }
+ }
+
  fn interpret_cmp_list( &mut self, stmt : &[Sexp], subject_str : &String) -> bool {
 
   if 0 == stmt.len() { return true;}
@@ -316,7 +353,15 @@ impl Interpreter {
 
    if 1 == stmt.len() { panic!("no parameter to command {}", &stmt[0])}
 
-   if let Sexp::Atom( Atom::S( parameter)) = &stmt[1] {
+   let parameter_tmp : String;
+
+   let parameter = match &stmt[1] {
+    Sexp::Atom( Atom::S( parameter)) => parameter,
+    Sexp::List( sexp) => { parameter_tmp = self.interpret_string_term( sexp); &parameter_tmp },
+    _ => panic!( "1433y10cek"),
+   };
+
+   {
 
     return match command.as_str() {
      "regex1" => {
@@ -328,13 +373,14 @@ impl Interpreter {
 
       return regex.is_match( subject_str.as_str());
      },
-     "startswith1" => { subject_str.starts_with( parameter)}
-     "endswith1" => { subject_str.ends_with( parameter)}
-     "contains1" => { subject_str.find( parameter) != None}
-     "<1" => { subject_str < parameter}
-     ">1" => { subject_str > parameter}
-     "<=1" => { subject_str <= parameter}
-     ">=1" => { subject_str >= parameter}
+     "startswith1" => { subject_str.starts_with( parameter)},
+     "endswith1" => { subject_str.ends_with( parameter)},
+     "contains1" => { subject_str.find( parameter) != None},
+     "<1" => { subject_str < parameter},
+     ">1" => { subject_str > parameter},
+     "<=1" => { subject_str <= parameter},
+     ">=1" => { subject_str >= parameter},
+     "=1" => { subject_str == parameter},
      _ => panic!("unknown comparison operator {}", command),
     } && self.interpret_cmp_list( &stmt[2..], &subject_str);
    }  

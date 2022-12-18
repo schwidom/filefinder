@@ -1,6 +1,6 @@
 [package]
 name = "filefinder"
-version = "1.8.1"
+version = "1.9.0"
 authors = ["Frank Schwidom <schwidom@gmx.net>"]
 edition = "2018"
 
