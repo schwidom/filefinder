@@ -80,6 +80,14 @@ $TMPDIR/timefile.txt 0
 EOF
 )
 
+echo "$LINENO"
+
+diff <(
+"$BINARY" -p "$TMPDIR" -e '(size1 (=1 0))' --format '{path} {size}'
+) <( cat <<EOF
+$TMPDIR/timefile.txt 0
+EOF
+)
 
 echo "$LINENO"
 
@@ -89,7 +97,6 @@ diff <(
 $TMPDIR/timefile.txt 0
 EOF
 )
-
 
 echo "$LINENO"
 

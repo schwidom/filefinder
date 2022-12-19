@@ -419,10 +419,11 @@ impl Interpreter {
    };
 
    return match command.as_str() {
-    "<1" => { subject_u64 < parameter}
-    ">1" => { subject_u64 > parameter}
-    "<=1" => { subject_u64 <= parameter}
-    ">=1" => { subject_u64 >= parameter}
+    "<1" => { subject_u64 < parameter},
+    ">1" => { subject_u64 > parameter},
+    "<=1" => { subject_u64 <= parameter},
+    ">=1" => { subject_u64 >= parameter},
+    "=1" => { subject_u64 == parameter},
     _ => panic!("unknown comparison operator {}", command),
    } && self.interpret_cmp_list_u64( &stmt[2..], subject_u64);
   }
