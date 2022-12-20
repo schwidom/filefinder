@@ -134,4 +134,28 @@ $TMPDIR/timefile.txt 0
 EOF
 )
 
+echo "$LINENO"
+
+diff <( 
+ { "$BINARY" -p space --follow-symlinks ; echo "space/to-a-d/"; echo "space/to-b-e/"; } | sort 
+) <( 
+ { "$BINARY" -p space; "$BINARY" -p space/to-b-e/ ; "$BINARY" -p space/to-a-d/; } | sort 
+)
+
+echo "$LINENO"
+
+(cd "$TMPDIR"
+ mkdir a
+ cd a
+ ln -s .. b
+)
+
+echo "$LINENO"
+
+diff <( 
+ { "$BINARY" -p "$TMPDIR" --follow-symlinks; echo "$TMPDIR"/a/b/ ; } | sort
+) <( 
+ { "$BINARY" -p "$TMPDIR"; "$BINARY" -p "$TMPDIR"/a/b/; } | sort
+)
+
 
