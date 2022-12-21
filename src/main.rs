@@ -176,6 +176,8 @@ trait PathBufTrait {
  fn cm_size( &self) -> u64;
 
  fn cm_path( &self) -> String;
+ fn cm_realpath( &self) -> String;
+ fn cm_readlink( &self) -> String;
  fn cm_basename( &self) -> String;
  fn cm_dirname( &self) -> String;
  fn cm_filestem( &self) -> String;
@@ -217,6 +219,24 @@ impl PathBufTrait for PathBuf {
  fn cm_path( &self) -> String {
   self.to_string_lossy().to_string()
   // self.as_os_str().to_string_lossy().to_string()
+ }
+
+ fn cm_realpath( &self) -> String {
+
+  if let Ok( name) = self.canonicalize() {
+   return name.to_string_lossy().to_string();
+  }
+
+  return "".to_string();
+ }
+
+ fn cm_readlink( &self) -> String {
+
+  if let Ok( name) = self.read_link() {
+   return name.to_string_lossy().to_string();
+  }
+
+  return "".to_string();
  }
 
  fn cm_basename( &self) -> String {
@@ -567,6 +587,14 @@ impl Interpreter {
        self.cmp( &state.stmt[1], &state.path.cm_path()) &&
        self.cont2( 2, &state)
     }, 
+    "realpath1" => { 
+      self.cmp( &state.stmt[1], &state.path.cm_realpath()) &&
+      self.cont2( 2, &state)
+    }, 
+    "readlink1" => { 
+      self.cmp( &state.stmt[1], &state.path.cm_readlink()) &&
+      self.cont2( 2, &state)
+    }, 
     "basename1" => { 
       self.cmp( &state.stmt[1], &state.path.cm_basename()) &&
       self.cont2( 2, &state)
@@ -605,6 +633,35 @@ impl Interpreter {
     "exists0" => { state.path.exists() && cont( 1) },
     "isempty0" => { state.path.is_empty() && cont( 1) },
     "isreadonly0" => { state.path.is_readonly() && cont( 1) },
+    "linksto1" => {
+
+     // let path = PathBuf::from(subject_str);
+     let path = state.path;
+
+     loop {
+
+      if ! path.is_symlink() { break false;}
+
+      let path = path.cm_realpath();
+
+      if path == "" { break false;}
+
+      if let Sexp::Atom( Atom::S( param)) =  &state.stmt[1] {
+
+       // let param = PathBuf::from(parameter).cm_realpath();
+       let param = PathBuf::from(param).cm_realpath();
+  
+       if param == "" { break false;}
+
+       // eprintln!("{}, {}", path, param);
+
+       break path == param;
+      } else { 
+       panic!("path expected instead of ''{:?}''", &state.stmt[1]);
+      }
+     }
+
+    },
     _ => panic!("not implemented as command : ''{}''", atom),
    }
   } else {
@@ -655,6 +712,8 @@ fn path_format( path : & PathBuf, re : &regex::Regex, format : &String) -> Strin
   match symbol {
    "size" => { ht.insert( "size".to_string(), path.cm_size().to_string());},
    "path" => { ht.insert( "path".to_string(), path.cm_path());},
+   "realpath" => { ht.insert( "realpath".to_string(), path.cm_realpath());},
+   "readlink" => { ht.insert( "readlink".to_string(), path.cm_readlink());},
    "basename" => { ht.insert( "basename".to_string(), path.cm_basename());},
    "dirname" => { ht.insert( "dirname".to_string(), path.cm_dirname());},
    "filestem" => { ht.insert( "filestem".to_string(), path.cm_filestem());},

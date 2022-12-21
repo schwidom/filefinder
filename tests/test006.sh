@@ -141,3 +141,12 @@ true -  - space - space -  - space - false  - false - true - false - false - tru
 EOF
 )
 
+echo "$LINENO"
+
+diff <(
+"$BINARY" -p space/to-a-d -c -e 'isfile' --format="- {extension} - {filestem} - {realpath} - {readlink} - {basename} - {dirname} - {path} - {isfile}  - {islink} - {isdir} - {isempty} - {isreadonly} - {exists} -"
+) <(
+cat <<EOF
+false -  - to-a-d - $PWD/space/a/d - a/d - to-a-d - space - space/to-a-d - false  - true - true - false - false - true -
+EOF
+)

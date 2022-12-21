@@ -158,4 +158,12 @@ diff <(
  { "$BINARY" -p "$TMPDIR"; "$BINARY" -p "$TMPDIR"/a/b/; } | sort
 )
 
+echo "$LINENO"
+
+diff <( 
+ "$BINARY" -p space -e '(linksto1 "space/a/d")'
+) <( 
+echo "space/to-a-d"
+)
+
 
