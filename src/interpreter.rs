@@ -9,6 +9,10 @@ use sexp::Atom;
 
 // use filefinder::tools::AO; // lib.rs
 use crate::tools::AO; // lib.rs
+// #[macro_use]
+// use crate::tools::ao; // lib.rs
+use crate::ao; // lib.rs
+// ao
 
 // use filefinder::treewalkmethods::TreeWalkMethods; // lib.rs
 use crate::treewalkmethods::TreeWalkMethods; // lib.rs
@@ -245,7 +249,7 @@ impl Interpreter {
  }
 
  fn interpret_slice( &mut self, state : &State<&[Sexp]>) -> bool {
-  if state.stmt.is_empty() { return true;}
+  if state.stmt.is_empty() { return ao!( state.defop ) ;}
 
   let mut cont = | i : usize | -> bool { 
    self.interpret_slice( &State::<&[Sexp]>{ defop : state.defop, stmt : &state.stmt[ i..] , path : state.path }) 
@@ -264,6 +268,7 @@ impl Interpreter {
     if atom_b.len() == 0 { panic!("command must be of size >0");}
     else {
      let c : u8 = atom_b[atom_b.len() -1];
+     if c < b'0' { panic!("command has to end with digit between 0 - 9 {}", atom); }
      let ret = c - ( b'0');
      if ret > 9 { panic!("command has to end with digit between 0 - 9 {}", atom); }
      ret
@@ -272,37 +277,37 @@ impl Interpreter {
 
    let next_command : usize = 1 + arity as usize;
    
-   match atom.as_str() {
+   let matchresult = match atom.as_str() { // TODO : better name (matchresult)
     // "help" => true, // TODO
-    "|0" => { self.cont4( AO::Or, next_command, &state) },
-    "&0" => { self.cont4( AO::And, next_command, &state) },
-    "ct0" => true, // comment true
-    "cf0" => false, // comment false
-    "t0" => { cont( 1); true },
-    "f0" => { cont( 1); false },
-    "or0" => state.stmt[1..].iter().fold( false, 
+    "|0" => { return self.cont4( AO::Or, next_command, &state) },
+    "&0" => { return self.cont4( AO::And, next_command, &state) },
+    "ct0" => { return true}, // comment true
+    "cf0" => { return false}, // comment false
+    "t0" => { cont( 1); return true },
+    "f0" => { cont( 1); return false },
+    "or0" => { return state.stmt[1..].iter().fold( false, 
      | i, k | i || self.interpret_term( &State::<&Sexp>{ defop : state.defop, stmt : &k, path : state.path })
-    ),
-    "and0" => state.stmt[1..].iter().fold( true, 
+    )},
+    "and0" => { return state.stmt[1..].iter().fold( true, 
      | i, k | i && self.interpret_term( &State::<&Sexp>{ defop : state.defop, stmt : &k, path : state.path })
-    ),
-    "progn0" => state.stmt[1..].iter().fold( true, 
+    )},
+    "progn0" => { return state.stmt[1..].iter().fold( true, 
      | _i, k |  self.interpret_term( &State::<&Sexp>{ defop : state.defop, stmt : k, path : state.path })
-    ),
-    "not0" => { ! cont( 1) }, 
-    "do0" => { cont( 1) },
+    )},
+    "not0" => { return ! cont( 1) }, 
+    "do0" => { return cont( 1) },
     "cut0" => { 
       self.tree_walk_methods.cut(); 
-      self.cont2( 1, &state)
+      return self.cont2( 1, &state)
     },
     "uncut0" => {
        self.tree_walk_methods.uncut();
-       self.cont2( 1, &state)
+       return self.cont2( 1, &state)
     },
     "inject1" => { 
       if let Sexp::Atom( Atom::S(path)) = &state.stmt[1] { // TODO : error handling
        self.tree_walk_methods.inject(&PathBuf::from( path));
-       self.cont2( 2, &state)
+       return self.cont2( 2, &state)
       } else {
        panic!("error in {}: string expected", atom)
       }
@@ -320,7 +325,7 @@ impl Interpreter {
     "injectonce1" => { 
       if let Sexp::Atom( Atom::S(path)) = &state.stmt[1] { // TODO : error handling
        self.tree_walk_methods.injectonce( &PathBuf::from( path));
-       self.cont2( 2, &state)
+       return self.cont2( 2, &state)
       } else {
        panic!("error in {}: string expected", atom)
       }
@@ -331,7 +336,7 @@ impl Interpreter {
        Sexp::Atom( Atom::S(path)) => {
         let mut newpath = state.path.clone();
         newpath.push(PathBuf::from(path));
-        self.cont3( 2, &state, &newpath)
+        return self.cont3( 2, &state, &newpath)
        },
        Sexp::List( stmt) => {
         let mut res : bool = false;
@@ -344,9 +349,9 @@ impl Interpreter {
            break;
           }
          }
-         res
+         return res
         } else { 
-         false
+         return false
         }
 
        },
@@ -356,67 +361,55 @@ impl Interpreter {
     "inback0" => {
       let mut newpath = state.path.clone();
       newpath.pop();
-      self.cont3( 1, &state, &newpath)
+      return self.cont3( 1, &state, &newpath)
     },
     "dirname1" => { 
-      self.cmp( &state.stmt[1], &state.path.cm_dirname()) &&
-      self.cont2( 2, &state)
+      self.cmp( &state.stmt[1], &state.path.cm_dirname())
     }, 
     "path1" => { 
-       self.cmp( &state.stmt[1], &state.path.cm_path()) &&
-       self.cont2( 2, &state)
+      self.cmp( &state.stmt[1], &state.path.cm_path())
     }, 
     "realpath1" => { 
-      self.cmp( &state.stmt[1], &state.path.cm_realpath()) &&
-      self.cont2( 2, &state)
+      self.cmp( &state.stmt[1], &state.path.cm_realpath()) 
     }, 
     "readlink1" => { 
-      self.cmp( &state.stmt[1], &state.path.cm_readlink()) &&
-      self.cont2( 2, &state)
+      self.cmp( &state.stmt[1], &state.path.cm_readlink())
     }, 
     "basename1" => { 
-      self.cmp( &state.stmt[1], &state.path.cm_basename()) &&
-      self.cont2( 2, &state)
+      self.cmp( &state.stmt[1], &state.path.cm_basename())
     }, 
     "filestem1" => { 
-      self.cmp( &state.stmt[1], &state.path.cm_filestem()) &&
-      self.cont2( 2, &state)
+      self.cmp( &state.stmt[1], &state.path.cm_filestem())
     }, 
     "extension1" => { 
-      self.cmp( &state.stmt[1], &state.path.cm_extension()) &&
-      self.cont2( 2, &state)
+      self.cmp( &state.stmt[1], &state.path.cm_extension())
     }, 
     "atime1" => { 
-      self.cmp( &state.stmt[1], &state.path.cm_atime()) &&
-      self.cont2( 2, &state)
+      self.cmp( &state.stmt[1], &state.path.cm_atime()) 
     }, 
     "ctime1" => { 
-      self.cmp( &state.stmt[1], &state.path.cm_ctime()) &&
-      self.cont2( 2, &state)
+      self.cmp( &state.stmt[1], &state.path.cm_ctime()) 
     }, 
     "mtime1" => { 
-      self.cmp( &state.stmt[1], &state.path.cm_mtime()) &&
-      self.cont2( 2, &state)
+      self.cmp( &state.stmt[1], &state.path.cm_mtime()) 
     }, 
     "size_string1" => { 
-      self.cmp( &state.stmt[1], &state.path.cm_size().to_string()) &&
-      self.cont2( 2, &state)
+      self.cmp( &state.stmt[1], &state.path.cm_size().to_string()) 
     }, 
     "size1" => { 
-      self.cmp( &state.stmt[1], state.path.cm_size()) &&
-      self.cont2( 2, &state)
+      self.cmp( &state.stmt[1], state.path.cm_size()) 
     }, 
-    "isdir0" => { state.path.is_dir() && cont( 1) },
-    "isfile0" => { state.path.is_file() && cont( 1) },
-    "islink0" => { state.path.is_symlink() && cont( 1) },
-    "exists0" => { state.path.exists() && cont( 1) },
-    "isempty0" => { state.path.is_empty() && cont( 1) },
-    "isreadonly0" => { state.path.is_readonly() && cont( 1) },
+    "isdir0" => { state.path.is_dir() },
+    "isfile0" => { state.path.is_file() },
+    "islink0" => { state.path.is_symlink() },
+    "exists0" => { state.path.exists() },
+    "isempty0" => { state.path.is_empty() },
+    "isreadonly0" => { state.path.is_readonly() },
     "linksto1" => {
 
      let path = state.path;
 
-     ( loop {
+     loop {
 
       if ! path.is_symlink() { break false;}
 
@@ -434,11 +427,14 @@ impl Interpreter {
       } else { 
        panic!("path expected instead of ''{:?}''", &state.stmt[1]);
       }
-     } )  && cont( 2)
+     }
 
     },
     _ => panic!("not implemented as command : ''{}''", atom),
-   }
+   };
+ 
+   return ao!( matchresult, state.defop, self.cont2( next_command, &state))
+
   } else {
    panic!("string expected ''{}''", &state.stmt[0])
   }

@@ -166,4 +166,64 @@ diff <(
 echo "space/to-a-d"
 )
 
+echo "$LINENO"
+
+diff <( 
+ "$BINARY" -p space -e '(linksto1 "space/a/d" linksto1 "space/b/e")'
+) <( 
+)
+
+echo "$LINENO"
+
+diff <( 
+ "$BINARY" -p space -e '(&0 linksto1 "space/a/d" linksto1 "space/b/e")'
+) <( 
+)
+
+echo "$LINENO"
+
+diff <( 
+ "$BINARY" -p space -e '(|0 linksto1 "space/a/d" f0)'
+) <( 
+echo "space/to-a-d"
+)
+
+echo "$LINENO"
+
+diff <( 
+ "$BINARY" -p space -e '(|0 linksto1 "space/a/d" linksto1 "space/b/e")' | sort
+) <( 
+{
+ echo "space/to-a-d"
+ echo "space/to-b-e"
+} | sort
+)
+
+diff <( 
+ "$BINARY" -p space -e '(|0 linksto1 "space/a/d" &0 linksto1 "space/b/e")' | sort
+) <( 
+{
+ echo "space/to-a-d"
+ echo "space/to-b-e"
+} | sort
+)
+
+diff <( 
+ "$BINARY" -p space -e '(|0 linksto1 "space/a/d" &0 linksto1 "space/b/e" t0)' | sort
+) <( 
+{
+ echo "space/to-a-d"
+ echo "space/to-b-e"
+} | sort
+)
+
+diff <( 
+ "$BINARY" -p space -e '(|0 linksto1 "space/a/d" linksto1 "space/b/e" f0)' | sort
+) <( 
+{
+ echo "space/to-a-d"
+ echo "space/to-b-e"
+} | sort
+)
+
 
