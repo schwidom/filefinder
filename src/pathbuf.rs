@@ -20,6 +20,9 @@ pub trait PathBufTrait {
  fn cm_atime( &self) -> String;
  fn cm_ctime( &self) -> String;
  fn cm_mtime( &self) -> String;
+
+ fn cm_len( &self) -> u64;
+ fn cm_depth( &self) -> u64;
 }
 
 impl PathBufTrait for PathBuf {
@@ -138,6 +141,14 @@ impl PathBufTrait for PathBuf {
    }
   }
   "".to_string()
+ }
+
+ fn cm_len( &self) -> u64 {
+  self.to_string_lossy().len() as u64
+ }
+
+ fn cm_depth( &self) -> u64 {
+  self.ancestors().count() as u64
  }
 
 }

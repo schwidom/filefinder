@@ -36,7 +36,7 @@ trait ComparatorTrait<T> {
  fn cmp( &mut self, s1 : &Sexp, s2 : T) -> bool;
 }
 
-impl ComparatorTrait<&String> for Interpreter {
+impl ComparatorTrait<&String> for Compiler {
  fn cmp( &mut self, s1 : &Sexp, s2 : &String) -> bool
  {
   match s1 {
@@ -47,7 +47,7 @@ impl ComparatorTrait<&String> for Interpreter {
  }
 }
 
-impl ComparatorTrait<u64> for Interpreter {
+impl ComparatorTrait<u64> for Compiler {
  fn cmp( &mut self, s1 : &Sexp, u : u64) -> bool
  {
   match s1 {
@@ -59,15 +59,15 @@ impl ComparatorTrait<u64> for Interpreter {
 }
 
 #[derive(Default)]
-pub struct Interpreter {
+pub struct Compiler {
  pub tree_walk_methods : TreeWalkMethods,
  regex_map : HashMap<String,regex::Regex>,
 }
 
 
-impl Interpreter {
+impl Compiler {
 
- pub fn new() -> Self { Interpreter::default() }
+ pub fn new() -> Self { Compiler::default() }
 
  fn interpret_cmp_term( &mut self, sexp : &Sexp, subject_str : &String) -> bool {
   match &sexp {
@@ -446,12 +446,33 @@ impl Interpreter {
   }
  }
 
- pub fn interpret( &mut self, defop : AO, v : &Vec<String>, path : &PathBuf) -> bool {
+/*
+ pub fn compile( &mut self, defop : AO, v : &Vec<String>, path : &PathBuf) -> bool {
   v.iter() 
    .map( | exp | sexp::parse( exp.as_str()).unwrap())
    .map( | stmt | self.interpret_term( &State{ defop : defop, path: &path, stmt: &stmt}))
    .fold( true, | accu, res | accu && res)
  }
+*/
+
+// TODO
+/*
+- pub fn compile( &mut self, defop : AO, v : &Vec<String>) -> fn( &PathBuf) -> bool {
+-
+-  move | path | {
+-   v.iter() 
+-    .map( | exp | sexp::parse( exp.as_str()).unwrap())
+-    .map( | stmt | self.interpret_term( &State{ defop : defop, path: &path, stmt: &stmt}))
+-    .fold( true, | accu, res | accu && res)
+-  }
++ pub fn compile( &mut self, defop : AO, v : &Vec<String>, path : &PathBuf) -> bool {
++  v.iter() 
++   .map( | exp | sexp::parse( exp.as_str()).unwrap())
++   .map( | stmt | self.interpret_term( &State{ defop : defop, path: &path, stmt: &stmt}))
++   .fold( true, | accu, res | accu && res)
+  }
+*/
+
 
  fn interpret2( &mut self, defop : AO, stmt : &[Sexp], path : &PathBuf) -> bool {
   self.interpret_slice( &State::<&[Sexp]>{ defop : defop, path: &path, stmt: stmt}) // TODO : State{ stmt : &T}

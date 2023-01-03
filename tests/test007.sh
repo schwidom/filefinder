@@ -27,6 +27,24 @@ EOF
 echo "$LINENO"
 
 diff <(
+"$BINARY" -p "$TMPDIR" -e '(atime1 (startswith1 "2022-01-17" startswith1 "2022-01-17"))' 
+) <( cat <<EOF
+$TMPDIR/timefile.txt
+EOF
+)
+
+# echo "$LINENO" # TODO hier fehlt noch t0 f0 ct0 cf0 &0 |0 h6wmngezju 
+# 
+# diff <(
+# "$BINARY" -p "$TMPDIR" -e '(atime1 (startswith1 "2022-01-17" t0))' 
+# ) <( cat <<EOF
+# $TMPDIR/timefile.txt
+# EOF
+# )
+
+echo "$LINENO"
+
+diff <(
 "$BINARY" -p "$TMPDIR" -e '(mtime1 (startswith1 "2022-01-16"))' 
 ) <( cat <<EOF
 $TMPDIR/timefile.txt

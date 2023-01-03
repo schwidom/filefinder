@@ -1,4 +1,4 @@
-filefinder 1.11.0
+filefinder 1.12.0
 ./test001.sh
 3
 8
@@ -65,10 +65,9 @@ filefinder 1.11.0
 9
 18
 27
-36
-46
-56
-65
+45
+54
+64
 74
 83
 92
@@ -77,12 +76,14 @@ filefinder 1.11.0
 119
 128
 137
-145
-153
-161
-169
-176
-183
-191
+146
+155
+163
+171
+179
+187
+194
+201
+209
 done (don't forget to check)
-filefinder 1.11.0
+filefinder 1.12.0

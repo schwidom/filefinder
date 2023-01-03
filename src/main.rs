@@ -2,10 +2,6 @@
 extern crate clap;
 use clap::Parser;
 
-// extern crate sexp;
-// use sexp::Sexp;
-// use sexp::Atom;
-
 use std::path::PathBuf;
 
 use filefinder::pathbuf::PathBufTrait; // has to be visible for the PathBuf extensions
@@ -14,10 +10,6 @@ use std::process::exit;
 
 use std::collections::HashSet;
 use std::collections::HashMap;
-// use std::collections::VecDeque;
-
-// use std::ffi::OsString;
-// use std::ffi::OsStr;
 
 use std::fs::File;
 use std::fs::read_to_string;
@@ -123,6 +115,10 @@ fn path_format( path : & PathBuf, re : &regex::Regex, format : &String) -> Strin
    "atime" => { ht.insert( "atime".to_string(), path.cm_atime());},
    "ctime" => { ht.insert( "ctime".to_string(), path.cm_ctime());},
    "mtime" => { ht.insert( "mtime".to_string(), path.cm_mtime());},
+
+   "pathlength" => { ht.insert( "pathlength".to_string(), path.cm_len().to_string());},
+
+   "pathdepth" => { ht.insert( "pathdepth".to_string(), path.cm_depth().to_string());},
 
    _ => (),
   }

@@ -6,5 +6,7 @@ pub mod treewalkmethods;
 pub mod treewalk;
 #[path = "interpreter.rs"]
 pub mod interpreter;
+#[path = "compiler.rs"]
+pub mod compiler;
 #[path = "pathbuf.rs"]
 pub mod pathbuf;
