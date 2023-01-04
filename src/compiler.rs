@@ -446,36 +446,19 @@ impl Compiler {
   }
  }
 
-/*
- pub fn compile( &mut self, defop : AO, v : &Vec<String>, path : &PathBuf) -> bool {
-  v.iter() 
-   .map( | exp | sexp::parse( exp.as_str()).unwrap())
-   .map( | stmt | self.interpret_term( &State{ defop : defop, path: &path, stmt: &stmt}))
-   .fold( true, | accu, res | accu && res)
- }
-*/
-
-// TODO
-/*
-- pub fn compile( &mut self, defop : AO, v : &Vec<String>) -> fn( &PathBuf) -> bool {
--
--  move | path | {
--   v.iter() 
--    .map( | exp | sexp::parse( exp.as_str()).unwrap())
--    .map( | stmt | self.interpret_term( &State{ defop : defop, path: &path, stmt: &stmt}))
--    .fold( true, | accu, res | accu && res)
--  }
-+ pub fn compile( &mut self, defop : AO, v : &Vec<String>, path : &PathBuf) -> bool {
-+  v.iter() 
-+   .map( | exp | sexp::parse( exp.as_str()).unwrap())
-+   .map( | stmt | self.interpret_term( &State{ defop : defop, path: &path, stmt: &stmt}))
-+   .fold( true, | accu, res | accu && res)
-  }
-*/
-
-
  fn interpret2( &mut self, defop : AO, stmt : &[Sexp], path : &PathBuf) -> bool {
   self.interpret_slice( &State::<&[Sexp]>{ defop : defop, path: &path, stmt: stmt}) // TODO : State{ stmt : &T}
+ }
+
+// TODO
+ pub fn compile<'a>( &'a mut self, defop : AO, v : &'a Vec<String>) -> impl FnMut( &PathBuf) -> bool + 'a {
+
+  move | path | {
+   v.iter() 
+    .map( | exp | sexp::parse( exp.as_str()).unwrap())
+    .map( | stmt | self.interpret_term( &State{ defop : defop, path: &path, stmt: &stmt}))
+    .fold( true, | accu, res | accu && res)
+  }
  }
 
 }
