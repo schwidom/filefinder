@@ -1,7 +1,7 @@
 
 #![allow(unused)]
 
-#[derive(Debug,Clone,Copy)]
+#[derive(Debug,Clone,Copy,PartialEq)]
 pub enum AO {
  And,
  Or,

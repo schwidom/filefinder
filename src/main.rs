@@ -28,6 +28,8 @@ use filefinder::interpreter::Interpreter; // lib.rs
 
 use filefinder::treewalk; // lib.rs
 
+use filefinder::compiler::Compiler; // lib.rs
+
 /*
 fn get_type_of<T>(_: &T) -> String {
     format!("{}", std::any::type_name::<T>())
@@ -132,7 +134,8 @@ fn main() {
 
  let args = Args::parse();
 
- let mut interpreter = Interpreter::new(); // vr9e9deprc 
+ let mut interpreter = Interpreter::new();
+ let mut compiler = Compiler::new(); 
 
  if args.files_from_stdin {
 
@@ -197,6 +200,9 @@ fn main() {
   exit( 0);
  }
  
+ use std::env::var_os;
+
+ if var_os( "USE_COMPILER") == None
  {
 
   let mut tree_walk = treewalk::TreeWalk::new( path);
@@ -231,6 +237,49 @@ fn main() {
    }
 
    interpreter.tree_walk_methods.transmit( &mut tree_walk);
+  }
+ }
+ else
+ {
+
+  // println!("USE_COMPILER is on");
+
+  let mut tree_walk = treewalk::TreeWalk::new( path);
+ 
+  tree_walk.follow_symlinks = args.follow_symlinks;
+
+  if let &Some( ref cut_log) = &args.debug_log_cuts_file {
+   tree_walk.cut_log = Some( LineWriter::new( File::create( cut_log).unwrap()));
+  }
+
+  let mut compiled_function = compiler.compile( AO::And, &args.expression);
+
+  tree_walk.excluded_files = create_hash_set_from_excluded_files( &args);
+
+  loop {
+
+   match tree_walk.next() {
+
+    None => break,
+
+    Some( path) => {
+
+     // if interpreter.interpret( AO::And, &args.expression, &path)
+     if compiled_function( &mut compiler, &path)
+     {
+ 
+      if let Some( format) = &args.format {
+       println!("{}", path_format( &path, &re, &format));
+      } else {
+       println!("{}", path.display());
+      }
+     }
+
+    },
+
+   }
+
+   compiler.tree_walk_methods.transmit( &mut tree_walk);
   }
  }
 }
