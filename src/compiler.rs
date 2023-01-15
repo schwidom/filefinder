@@ -65,34 +65,11 @@ pub struct Compiler {
  regex_map : HashMap<String,regex::Regex>,
 }
 
-
-struct Function<'a> {
- f: Box< dyn FnMut( &mut Compiler, &PathBuf) -> bool + 'a >
-}
-
-impl<'a> Function<'a> {
- fn call( &mut self, this : &mut Compiler, path : &PathBuf) -> bool {
-  ( self.f ) ( this, path)
- }
-}
-
-struct Function2 {
+struct Function {
  f: Box< dyn FnMut( &mut Compiler, &PathBuf) -> bool >
 }
 
-impl Function2 {
- fn call( &mut self, this : &mut Compiler, path : &PathBuf) -> bool {
-  ( self.f ) ( this, path)
- }
-}
-
-struct FunctionT<'a, T> {
- // f: Box< dyn FnMut( &mut Self, &PathBuf) -> bool + 'a > // ??? das compilierte, aber warum?
- f: Box< dyn FnMut( &mut Compiler, &PathBuf) -> bool + 'a >,
- t : T,
-}
-
-impl<'a, T> FunctionT<'a, T> {
+impl Function {
  fn call( &mut self, this : &mut Compiler, path : &PathBuf) -> bool {
   ( self.f ) ( this, path)
  }
@@ -240,21 +217,10 @@ impl Compiler {
   panic!("did not match {:?} {:?}", &stmt[0], &stmt[1]) // e.g. when it is another type
  }
 
- // fn compile_term<'a, 'b>( &mut self, state : &'a State2<'b, Sexp>) -> impl FnMut( &mut Self, &PathBuf) -> bool + 'a + 'b 
- // fn compile_term<'a>( &mut self, state : &'a State2<Sexp>) -> Box<dyn FnMut( &mut Self, &PathBuf) -> bool + 'a> // 
- // fn compile_term<'a>( &mut self, state : &'a State2<Sexp>) ->  Function<'a> 
- // fn compile_term<'a>( &mut self, state : State2<'a, Sexp>) ->  Function<'a> 
- fn compile_term( &mut self, state : &State2<Sexp>) ->  Function2
+ fn compile_term( &mut self, state : &State2<Sexp>) ->  Function
  {
 
-  // type FT = dyn FnMut( &mut Compiler, &PathBuf) -> bool;
-  // type FTB = Box< FT >;
-
-  // let vs : Vec<Sexp> = vec![];
-
-  // let state_copy = state.clone();
-
-  let ret = Function2{ f: match state.stmt {
+  let ret = Function{ f: match state.stmt {
 
    Sexp::Atom(Atom::S( atom)) => {
     match atom.as_str() {
@@ -313,7 +279,6 @@ impl Compiler {
    }},
 
    Sexp::List( list) => {
-    // self.interpret_slice( &State::<&[Sexp]>{ defop : state.defop, stmt : &list[..], path : path })
     self.interpret_slice2( &State2::<[Sexp]>{ defop : state.defop, stmt : &list[..]}, &path)
    },
 
@@ -322,18 +287,255 @@ impl Compiler {
  }
 
  fn cont2_2( &mut self, i : usize, state : &State2<[Sexp]>, path : &PathBuf) -> bool {
-  // self.interpret_slice( &State::<&[Sexp]>{ defop : state.defop, stmt : &state.stmt[ i..] , path : path })
   self.interpret_slice2( &State2::<[Sexp]>{ defop : state.defop, stmt : &state.stmt[ i..] }, &path)
  }
 
  fn cont3_2( &mut self, i : usize, state : &State2<[Sexp]>, path : &PathBuf) -> bool {
-  // self.interpret_slice( &State::<&[Sexp]>{ defop : state.defop, stmt : &state.stmt[ i..] , path : path })
   self.interpret_slice2( &State2::<[Sexp]>{ defop : state.defop, stmt : &state.stmt[ i..] }, &path)
  }
 
  fn cont4_2( &mut self, defop : AO, i : usize, state : &State2<[Sexp]>, path : &PathBuf) -> bool {
-  // self.interpret_slice( &State::<&[Sexp]>{ defop : defop, stmt : &state.stmt[ i..] , path : path })
   self.interpret_slice2( &State2::<[Sexp]>{ defop : defop, stmt : &state.stmt[ i..] }, &path)
+ }
+
+ fn cont4_2c( &mut self, defop : AO, i : usize, state : &State2<[Sexp]>) -> Function {
+  // self.interpret_slice2( &State2::<[Sexp]>{ defop : defop, stmt : &state.stmt[ i..] }, &path)
+  self.compile_slice( &State2::<[Sexp]>{ defop : defop, stmt : &state.stmt[ i..] })
+ }
+
+ // WEITERBEI
+ fn compile_slice( &mut self, state : &State2<[Sexp]>) -> Function {
+
+  let defop = state.defop;
+
+  if state.stmt.is_empty() { return Function{ f : Box::new( move | _this, _path | ao!( defop ))};}
+
+  /* // erstmal duch eine der alternativen ersetzen
+  let mut cont = | i : usize, path : &PathBuf | -> bool { 
+   // self.interpret_slice( &State::<&[Sexp]>{ defop : state.defop, stmt : &state.stmt[ i..] , path : path }) 
+   self.interpret_slice2( &State2::<[Sexp]>{ defop : state.defop, stmt : &state.stmt[ i..]}, &path) 
+  };
+  */
+
+  let mut cont = | i : usize | -> Function { 
+   // self.interpret_slice( &State::<&[Sexp]>{ defop : state.defop, stmt : &state.stmt[ i..] , path : path }) 
+   // self.interpret_slice2( &State2::<[Sexp]>{ defop : state.defop, stmt : &state.stmt[ i..]}, &path) 
+   self.compile_slice( &State2::<[Sexp]>{ defop : state.defop, stmt : &state.stmt[ i..]}) 
+  };
+
+  if let Sexp::Atom(Atom::S( atom)) = &state.stmt[0] {
+
+   let arity : u8 = {
+    let atom_b = atom.as_bytes();
+    if atom_b.len() == 0 { panic!("command must be of size >0");}
+    else {
+     let c : u8 = atom_b[atom_b.len() -1];
+     if c < b'0' { panic!("command has to end with digit between 0 - 9 {}", atom); }
+     let ret = c - ( b'0');
+     if ret > 9 { panic!("command has to end with digit between 0 - 9 {}", atom); }
+     ret
+    }
+   };
+
+   let next_command : usize = 1 + arity as usize;
+ 
+   let matchresult = Function{ f: match atom.as_str() { // TODO : better name (matchresult)
+    // "help" => true, // TODO
+    "|0" => { return self.cont4_2c( AO::Or, next_command, &state) },
+    "&0" => { return self.cont4_2c( AO::And, next_command, &state) },
+    "ct0" => { Box::new( move | _this, _path | true )}, // comment true
+    "cf0" => { Box::new( move | _this, _path | false )}, // comment true
+    "t0" => { let mut c = cont( 1); return Function{ f: Box::new( move | this, path | { c.call( this, path); true } ) } },
+    "f0" => { let mut c = cont( 1); return Function{ f: Box::new( move | this, path | { c.call( this, path); false } ) } },
+    "or0" => { return state.stmt[1..].iter().fold( Function{ f: Box::new( move | _this, _path | false ) }, 
+     | mut accu , value | {
+      let mut value_function = self.compile_term( &State2::<Sexp>{ defop : state.defop, stmt : &value });
+      Function{ f: Box::new( move | this, path | accu.call( this, path) || value_function.call( this, path)) }
+     }
+    )},
+    "and0" => { return state.stmt[1..].iter().fold( Function{ f: Box::new( move | _this, _path | true ) }, 
+     | mut accu , value | {
+      let mut value_function = self.compile_term( &State2::<Sexp>{ defop : state.defop, stmt : &value });
+      Function{ f: Box::new( move | this, path | accu.call( this, path) && value_function.call( this, path)) }
+     }
+    )},
+    _ => panic!(),
+   }};
+
+  panic!();
+
+   /* // WEITERBEI
+
+   let matchresult = match atom.as_str() { // TODO : better name (matchresult)
+    // "help" => true, // TODO
+    "|0" => { return self.cont4_2( AO::Or, next_command, &state, &path) },
+    "&0" => { return self.cont4_2( AO::And, next_command, &state, &path) },
+    "ct0" => { return true}, // comment true
+    "cf0" => { return false}, // comment false
+    "t0" => { cont( 1); return true },
+    "f0" => { cont( 1); return false },
+    "or0" => { return state.stmt[1..].iter().fold( false, 
+     | i, k | i || self.interpret_term2( &State2::<Sexp>{ defop : state.defop, stmt : &k }, &path)
+    )},
+    "and0" => { return state.stmt[1..].iter().fold( true, 
+     | i, k | i && self.interpret_term2( &State2::<Sexp>{ defop : state.defop, stmt : &k }, &path)
+    )},
+    "progn0" => { return state.stmt[1..].iter().fold( true, 
+     | _i, k |  self.interpret_term2( &State2::<Sexp>{ defop : state.defop, stmt : k }, &path)
+    )},
+    "not0" => { return ! cont( 1) }, 
+    "do0" => { return cont( 1) },
+    "cut0" => { 
+      self.tree_walk_methods.cut(); 
+      return self.cont2_2( 1, &state, &path)
+    },
+    "uncut0" => {
+       self.tree_walk_methods.uncut();
+       return self.cont2_2( 1, &state, &path)
+    },
+    "inject1" => { 
+      if let Sexp::Atom( Atom::S(path2)) = &state.stmt[1] { // TODO : error handling
+       self.tree_walk_methods.inject(&PathBuf::from( path2));
+       return self.cont2_2( 2, &state, &path)
+      } else {
+       panic!("error in {}: string expected", atom)
+      }
+    }, 
+/* // planned feature
+    "injectformula" => { 
+      if let Sexp::Atom( Atom::S(path)) = &state.stmt[1] { // TODO : error handling
+       self.tree_walk_methods.inject(PathBuf::from( path));
+       true
+      } else {
+       panic!("string expected") 
+      }
+    }, 
+*/
+    "injectonce1" => { 
+      if let Sexp::Atom( Atom::S(path2)) = &state.stmt[1] { // TODO : error handling
+       self.tree_walk_methods.injectonce( &PathBuf::from( path2));
+       return self.cont2_2( 2, &state, &path)
+      } else {
+       panic!("error in {}: string expected", atom)
+      }
+    }, 
+    "in1" => {
+
+      match &state.stmt[1] {
+       Sexp::Atom( Atom::S(path2)) => { // NOTE : maybe wrong
+        let mut newpath = path.clone();
+        newpath.push(PathBuf::from(path2));
+        return self.cont3_2( 2, &state, &newpath)
+       },
+       Sexp::List( stmt) => {
+        let mut res : bool = false;
+        if let Ok( direntries) = path.read_dir() { 
+         for direntry in direntries {
+          let path = direntry.unwrap().path();
+          if self.interpret2( state.defop, stmt, &path) 
+          {
+           res = self.cont3_2( 2, &state, &path);
+           break;
+          }
+         }
+         return res
+        } else { 
+         return false
+        }
+
+       },
+       _ => panic!("error in {}: string or command expected", atom)
+      }
+    },
+    "inback0" => {
+      let mut newpath = path.clone();
+      newpath.pop();
+      return self.cont3_2( 1, &state, &newpath)
+    },
+    "dirname1" => { 
+      self.cmp( &state.stmt[1], &path.cm_dirname())
+    }, 
+    "path1" => { 
+      self.cmp( &state.stmt[1], &path.cm_path())
+    }, 
+    "realpath1" => { 
+      self.cmp( &state.stmt[1], &path.cm_realpath()) 
+    }, 
+    "readlink1" => { 
+      self.cmp( &state.stmt[1], &path.cm_readlink())
+    }, 
+    "basename1" => { 
+      self.cmp( &state.stmt[1], &path.cm_basename())
+    }, 
+    "filestem1" => { 
+      self.cmp( &state.stmt[1], &path.cm_filestem())
+    }, 
+    "extension1" => { 
+      self.cmp( &state.stmt[1], &path.cm_extension())
+    }, 
+    "atime1" => { 
+      self.cmp( &state.stmt[1], &path.cm_atime()) 
+    }, 
+    "ctime1" => { 
+      self.cmp( &state.stmt[1], &path.cm_ctime()) 
+    }, 
+    "mtime1" => { 
+      self.cmp( &state.stmt[1], &path.cm_mtime()) 
+    }, 
+    "size_string1" => { 
+      self.cmp( &state.stmt[1], &path.cm_size().to_string()) 
+    }, 
+    "size1" => { 
+      self.cmp( &state.stmt[1], path.cm_size()) 
+    }, 
+    "pathlength1" => { 
+      self.cmp( &state.stmt[1], path.cm_len())
+    }, 
+    "pathdepth1" => { // TODO : vs. searchdepth
+      self.cmp( &state.stmt[1], path.cm_depth()) 
+    }, 
+    "isdir0" => { path.is_dir() },
+    "isfile0" => { path.is_file() },
+    "islink0" => { path.is_symlink() },
+    "exists0" => { path.exists() },
+    "isempty0" => { path.is_empty() },
+    "isreadonly0" => { path.is_readonly() },
+    "linksto1" => {
+
+     let path = path;
+
+     loop {
+
+      if ! path.is_symlink() { break false;}
+
+      let path = path.cm_realpath();
+
+      if path == "" { break false;}
+
+      if let Sexp::Atom( Atom::S( param)) =  &state.stmt[1] {
+
+       let param = PathBuf::from(param).cm_realpath();
+  
+       if param == "" { break false;}
+
+       break path == param;
+      } else { 
+       panic!("path expected instead of ''{:?}''", &state.stmt[1]);
+      }
+     }
+
+    },
+    _ => panic!("not implemented as command : ''{}''", atom),
+   };
+ 
+   // matchresult wird eine Function sein, zurückgegeben wird eine Funktion2, die matchresult und danach self.cont2_2 ruft
+
+   return ao!( matchresult, state.defop, self.cont2_2( next_command, &state, &path))
+   */
+
+  } else {
+   panic!("string expected ''{}''", &state.stmt[0])
+  }
  }
 
  fn interpret_slice2( &mut self, state : &State2<[Sexp]>, path : &PathBuf) -> bool {
@@ -534,26 +736,20 @@ impl Compiler {
  }
 }
 
-struct Compile2Data<'a>{
- expressions : Vec<Sexp>,
- states : Vec<State2<'a, Sexp>>,
- v2 : Vec<Function<'a>>,
-}
-
 impl Compiler {
 
- fn compile2( & mut self, defop : AO, v : &Vec<String>) -> Function2
+ fn compile2( & mut self, defop : AO, v : &Vec<String>) -> Function
  {
 
  let expressions : Vec<_> = v.iter().map( | exp | sexp::parse( exp.as_str()).unwrap()).collect();
  let states : Vec<_> = expressions.iter().map( | stmt | State2{ defop : defop, stmt: stmt}).collect();
 
- let mut v2 : Vec<Function2> = states.iter().map( | state | self.compile_term( state)).collect();
- // let mut v2 : Vec<Function2> = states.into_iter().map( move | state | { self.compile_term( &state)} ).collect();
+ let mut v2 : Vec<Function> = states.iter().map( | state | self.compile_term( state)).collect();
+ // let mut v2 : Vec<Function> = states.into_iter().map( move | state | { self.compile_term( &state)} ).collect();
 
-  Function2{ f : Box::new ( move | this, path | {
+  Function{ f : Box::new ( move | this, path | {
    v2.iter_mut() 
-    .map( | f : &mut Function2 | f.call( this, path))
+    .map( | f : &mut Function | f.call( this, path))
     .fold( true, | accu , res | accu && res)
   })}
  }
