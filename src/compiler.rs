@@ -59,6 +59,24 @@ impl ComparatorTrait<u64> for Compiler {
  }
 }
 
+trait ComparatorTraitF<T> {
+ fn cmpf( &mut self, s1 : &Sexp) -> Function2<T>;
+}
+
+impl ComparatorTraitF<String> for Compiler {
+ fn cmpf( &mut self, s1 : &Sexp) -> Function2<String>
+ {
+  match s1 {
+   Sexp::Atom( Atom::S( value1)) => { let value2 = value1.clone(); Function2::<String>::new( Box::new( move | _this, s2 | value2 == s2)) } ,
+   // Sexp::List( stmt) => self.interpret_cmp_list( &stmt, &s2),
+   Sexp::List( stmt) => self.compile_cmp_list( &stmt),
+   _ => panic!(),
+  }
+ }
+}
+
+
+
 #[derive(Default)]
 pub struct Compiler {
  pub tree_walk_methods : TreeWalkMethods,
@@ -70,8 +88,29 @@ struct Function {
 }
 
 impl Function {
+ fn new( f : Box< dyn FnMut( &mut Compiler, &PathBuf) -> bool > ) -> Function {
+  Function{ f : f }
+ }
  fn call( &mut self, this : &mut Compiler, path : &PathBuf) -> bool {
   ( self.f ) ( this, path)
+ }
+}
+
+struct Function2<T> {
+ f: Box< dyn FnMut( &mut Compiler, T) -> bool >
+}
+
+impl<T> Function2<T> {
+ fn new( f : Box< dyn FnMut( &mut Compiler, T) -> bool > ) -> Function2<T> {
+  Function2::<T>{ f : f }
+ }
+/*
+ fn bx( f : dyn FnMut( &mut Compiler, T) -> bool) -> Function2<T> {
+  Function2::<T>::new( Box::new( f))
+ }
+*/
+ fn call( &mut self, this : &mut Compiler, value : T) -> bool {
+  ( self.f ) ( this, value)
  }
 }
 
@@ -82,6 +121,13 @@ impl Compiler {
  fn interpret_cmp_term( &mut self, sexp : &Sexp, subject_str : &String) -> bool {
   match &sexp {
    Sexp::List( stmt) => self.interpret_cmp_list( stmt, subject_str),
+   _ => panic!("list expected"),
+  }
+ }
+
+ fn compile_cmp_term( &mut self, sexp : &Sexp) -> Function2<String> {
+  match &sexp {
+   Sexp::List( stmt) => self.compile_cmp_list( stmt),
    _ => panic!("list expected"),
   }
  }
@@ -121,6 +167,79 @@ impl Compiler {
    "file2" => self.interpret_string_term_file( &stmt[1..]),
    _ => panic!("string command not found {}", command),
   }
+ }
+
+ // subject_str = _object
+ fn compile_cmp_list( &mut self, stmt : &[Sexp]) -> Function2<String> {
+
+  if 0 == stmt.len() { return Function2::<String>::new( Box::new( | _this, _subject_str | true));}
+
+  // TODO : check if it is a number
+
+  if let Sexp::Atom( Atom::S( command)) = &stmt[0] {
+
+   if let Some( res) = match command.as_str() {
+    "and0" => Some( stmt[1..].iter().fold( 
+      Function2::<String>::new( Box::new( move | _this, _subject_str | true)) ,
+      | mut accu, value | {
+       let mut f2 = self.compile_cmp_term( value);
+       Function2::<String>::new( Box::new( move | this, subject_str | accu.call( this, subject_str.clone()) && f2.call( this, subject_str)))
+      }
+    )),
+    "or0" => Some( stmt[1..].iter().fold( 
+      Function2::<String>::new( Box::new( move | _this, _subject_str | false)) ,
+      | mut accu, value | {
+       let mut f2 = self.compile_cmp_term( value);
+       Function2::<String>::new( Box::new( move | this, subject_str | accu.call( this, subject_str.clone()) || f2.call( this, subject_str)))
+      }
+    )),
+    "not0" => { 
+     let mut compiled = self.compile_cmp_list( &stmt[1..]);
+     Some( Function2::<String>::new( Box::new( move | this, subject_str | ! compiled.call( this, subject_str))))
+    },
+    _ => None,
+   } { return res;}
+
+   if 1 == stmt.len() { panic!("no parameter to command {}", &stmt[0])}
+
+panic!();
+
+// WEITERBEI
+/*
+   let parameter_tmp : String;
+
+   let parameter = match &stmt[1] {
+    Sexp::Atom( Atom::S( parameter)) => parameter,
+    Sexp::List( sexp) => { parameter_tmp = self.interpret_string_term( sexp); &parameter_tmp },
+    _ => panic!( "1433y10cek"),
+   };
+
+   {
+
+    return match command.as_str() {
+     "regex1" => {
+      if ! self.regex_map.contains_key( parameter) { 
+       self.regex_map.insert( parameter.clone(), regex::Regex::new(parameter.as_str()).unwrap());
+      }
+
+      let regex = &self.regex_map[parameter]; // copy
+
+      return regex.is_match( subject_str.as_str());
+     },
+     "startswith1" => { subject_str.starts_with( parameter)},
+     "endswith1" => { subject_str.ends_with( parameter)},
+     "contains1" => { subject_str.find( parameter) != None},
+     "<1" => { subject_str < parameter},
+     ">1" => { subject_str > parameter},
+     "<=1" => { subject_str <= parameter},
+     ">=1" => { subject_str >= parameter},
+     "=1" => { subject_str == parameter},
+     _ => panic!("unknown comparison operator {}", command),
+    } && self.interpret_cmp_list( &stmt[2..], &subject_str);
+   }  
+*/
+  }
+  panic!("did not match {:?}", &stmt[0]) // e.g. when it is a number
  }
 
  fn interpret_cmp_list( &mut self, stmt : &[Sexp], subject_str : &String) -> bool {
@@ -290,8 +409,18 @@ impl Compiler {
   self.interpret_slice2( &State2::<[Sexp]>{ defop : state.defop, stmt : &state.stmt[ i..] }, &path)
  }
 
+ fn cont2_2c( &mut self, i : usize, state : &State2<[Sexp]>) -> Function {
+  // self.interpret_slice2( &State2::<[Sexp]>{ defop : state.defop, stmt : &state.stmt[ i..] }, &path)
+  self.compile_slice( &State2::<[Sexp]>{ defop : state.defop, stmt : &state.stmt[ i..] })
+ }
+
  fn cont3_2( &mut self, i : usize, state : &State2<[Sexp]>, path : &PathBuf) -> bool {
   self.interpret_slice2( &State2::<[Sexp]>{ defop : state.defop, stmt : &state.stmt[ i..] }, &path)
+ }
+
+ fn cont3_2c( &mut self, i : usize, state : &State2<[Sexp]>) -> Function {
+  // self.interpret_slice2( &State2::<[Sexp]>{ defop : state.defop, stmt : &state.stmt[ i..] }, &path)
+  self.compile_slice( &State2::<[Sexp]>{ defop : state.defop, stmt : &state.stmt[ i..] })
  }
 
  fn cont4_2( &mut self, defop : AO, i : usize, state : &State2<[Sexp]>, path : &PathBuf) -> bool {
@@ -359,6 +488,113 @@ impl Compiler {
       Function{ f: Box::new( move | this, path | accu.call( this, path) && value_function.call( this, path)) }
      }
     )},
+    "progn0" => { return state.stmt[1..].iter().fold( Function{ f: Box::new( move | _this, _path | true ) }, 
+     | mut accu , value | {
+      let mut value_function = self.compile_term( &State2::<Sexp>{ defop : state.defop, stmt : &value });
+      Function{ f: Box::new( move | this, path | { accu.call( this, path); value_function.call( this, path) })}
+     }
+    )},
+    "not0" => { let mut c = cont( 1); return Function{ f: Box::new( move | this, path | ! c.call( this, path) ) } },
+    "do0" => { return cont( 1) },
+    "cut0" => { 
+      let mut f2 = self.cont2_2c( 1, &state);
+      return Function::new( Box::new( move | this, path | { 
+      this.tree_walk_methods.cut();
+      f2.call( this, path)
+     }))
+    },
+    "uncut0" => { 
+      let mut f2 = self.cont2_2c( 1, &state);
+      return Function::new( Box::new( move | this, path | { 
+      this.tree_walk_methods.uncut();
+      f2.call( this, path)
+     }))
+    },
+    "inject1" => { 
+      let mut f2 = self.cont2_2c( 2, &state);
+      if let Sexp::Atom( Atom::S(path2)) = &state.stmt[1] { // TODO : error handling
+       let path3 = path2.clone();
+       return Function::new( Box::new( move | this, path | {
+        this.tree_walk_methods.inject(&PathBuf::from( path3.clone()));
+        f2.call( this, path)
+       }))
+      } else {
+       panic!("error in {}: string expected", atom)
+      }
+    }, 
+/* // planned feature
+    "injectformula" => { 
+      if let Sexp::Atom( Atom::S(path)) = &state.stmt[1] { // TODO : error handling
+       self.tree_walk_methods.inject(PathBuf::from( path));
+       true
+      } else {
+       panic!("string expected") 
+      }
+    }, 
+*/
+    "injectonce1" => { 
+      let mut f2 = self.cont2_2c( 2, &state); // TODO : use next_command
+      if let Sexp::Atom( Atom::S(path2)) = &state.stmt[1] { // TODO : error handling
+       let path3 = path2.clone();
+       return Function::new( Box::new( move | this, path | {
+        this.tree_walk_methods.injectonce(&PathBuf::from( path3.clone()));
+        f2.call( this, path)
+       }))
+      } else {
+       panic!("error in {}: string expected", atom)
+      }
+    }, 
+    "in1" => {
+      let mut f2 = self.cont3_2c( 2, &state);
+      match &state.stmt[1] {
+       Sexp::Atom( Atom::S(path2)) => { // NOTE : maybe wrong
+        let path3 = path2.clone();
+        return Function::new( Box::new( move | this, path | {
+          let mut newpath = path.clone();
+          newpath.push(PathBuf::from(path3.clone()));
+          f2.call( this, &newpath)
+        }))
+       },
+       Sexp::List( stmt) => {
+        let mut f3 = self.compile3( state.defop, stmt);
+        // interpret2 => compile3
+        let mut res : bool = false;
+        return Function::new( Box::new( move | this, path | {
+         if let Ok( direntries) = path.read_dir() { 
+          for direntry in direntries {
+           let path = direntry.unwrap().path();
+           // if this.interpret2( state.defop, stmt, &path) // TODO : change to compile3
+           if f3.call( this, &path)
+           {
+            // res = self.cont3_2( 2, &state, &path);
+            res = f2.call( this, &path);
+            break;
+           }
+          }
+          return res
+         } else { 
+          return false
+         }
+        }))
+       },
+       _ => panic!("error in {}: string or command expected", atom)
+      }
+    },
+    "inback0" => {
+      let mut f2 = self.cont3_2c( 2, &state);
+      return Function::new( Box::new( move | this, path | {
+       let mut newpath = path.clone();
+       newpath.pop();
+       f2.call( this, &newpath)
+      }))
+    },
+    // WEITERBEI 
+/*
+    "dirname1" => { 
+      // self.cmp( &state.stmt[1], &path.cm_dirname())
+      self.cmpf( &state.stmt[1]) // liefert Function
+    }, 
+*/
     _ => panic!(),
    }};
 
@@ -731,8 +967,14 @@ impl Compiler {
   }
  }
 
+ // TODO : wird das noch gebraucht?
  fn interpret2( &mut self, defop : AO, stmt : &[Sexp], path : &PathBuf) -> bool {
-  self.interpret_slice2( &State2::<[Sexp]>{ defop : defop, stmt: stmt}, &path) // TODO : State{ stmt : &T}
+  self.interpret_slice2( &State2::<[Sexp]>{ defop : defop, stmt: stmt}, &path) 
+ }
+
+ // TODO : wird das noch gebraucht?
+ fn compile3( &mut self, defop : AO, stmt : &[Sexp]) -> Function {
+  self.compile_slice( &State2::<[Sexp]>{ defop : defop, stmt: stmt})
  }
 }
 
