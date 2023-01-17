@@ -202,9 +202,8 @@ fn main() {
  
  use std::env::var_os;
 
- if var_os( "USE_COMPILER") == None
+ if var_os( "USE_COMPILER").is_none()
  {
-
   let mut tree_walk = treewalk::TreeWalk::new( path);
  
   tree_walk.follow_symlinks = args.follow_symlinks;
@@ -241,7 +240,6 @@ fn main() {
  }
  else
  {
-
   // println!("USE_COMPILER is on");
 
   let mut tree_walk = treewalk::TreeWalk::new( path);

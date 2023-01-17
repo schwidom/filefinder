@@ -87,3 +87,7 @@ filefinder 1.12.6
 209
 done (don't forget to check)
 filefinder 1.12.6
+
+real	0m0,318s
+user	0m0,484s
+sys	0m0,197s
