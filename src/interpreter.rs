@@ -17,6 +17,8 @@ use crate::ao; // lib.rs
 // use filefinder::treewalkmethods::TreeWalkMethods; // lib.rs
 use crate::treewalkmethods::TreeWalkMethods; // lib.rs
 
+use std::process::Command;
+
 #[derive(Debug,Clone)]
 struct State<'a,T> where T : SexpOrVec {
  // help : bool,
@@ -158,6 +160,21 @@ impl Interpreter {
      "<=1" => { subject_str <= parameter},
      ">=1" => { subject_str >= parameter},
      "=1" => { subject_str == parameter},
+
+     /* exec1 : TODO : test + to compiler
+      filefinder -p space/ -e '(and0 (isfile0) (path1 (exec1 "false")))'
+      filefinder -p /usr/include -e '(and0 (isfile0) (path1 (exec1 "grep \<main\> -q")))'
+     */
+
+     "exec1" => { 
+      let args = parameter.split_ascii_whitespace().collect::<Vec<_>>();
+      let mut child = Command::new( args[0])
+       // .args( Vec::from( args[1..]))
+       .args( args[1..].to_vec())
+       .arg( subject_str).spawn().expect( "os command failed");
+      let ecode = child.wait().expect( "failed to wait on child");
+      ecode.success()
+     },
      _ => panic!("unknown comparison operator {}", command),
     } && self.interpret_cmp_list( &stmt[2..], &subject_str);
    }  
