@@ -17,6 +17,8 @@ use crate::ao; // lib.rs
 // use filefinder::treewalkmethods::TreeWalkMethods; // lib.rs
 use crate::treewalkmethods::TreeWalkMethods; // lib.rs
 
+use std::process::Command;
+
 macro_rules! newfunbox{
  ( $value:ident, $inclosure:expr ) => ( Box::new( 
    move | _this, $value | $inclosure
@@ -263,6 +265,19 @@ impl Compiler {
      "<=1" => { newfunstr2!( subject_str, subject_str <= parameter)},
      ">=1" => { newfunstr2!( subject_str, subject_str >= parameter)},
      "=1" => { newfunstr2!( subject_str, subject_str == parameter)},
+
+     "exec1" => { newfunstr2!( subject_str, 
+      { 
+       let args = parameter.split_ascii_whitespace().collect::<Vec<_>>();
+       let mut child = Command::new( args[0])
+        // .args( Vec::from( args[1..]))
+        .args( args[1..].to_vec())
+        .arg( subject_str).spawn().expect( "os command failed");
+       let ecode = child.wait().expect( "failed to wait on child");
+       ecode.success()
+      })
+     },
+
      _ => panic!("unknown comparison operator {}", command),
     };
 

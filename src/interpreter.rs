@@ -161,11 +161,6 @@ impl Interpreter {
      ">=1" => { subject_str >= parameter},
      "=1" => { subject_str == parameter},
 
-     /* exec1 : TODO : test + to compiler
-      filefinder -p space/ -e '(and0 (isfile0) (path1 (exec1 "false")))'
-      filefinder -p /usr/include -e '(and0 (isfile0) (path1 (exec1 "grep \<main\> -q")))'
-     */
-
      "exec1" => { 
       let args = parameter.split_ascii_whitespace().collect::<Vec<_>>();
       let mut child = Command::new( args[0])

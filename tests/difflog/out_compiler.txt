@@ -1,4 +1,4 @@
-filefinder 1.12.6
+filefinder 1.12.8
 ./test001.sh
 3
 8
@@ -85,9 +85,12 @@ filefinder 1.12.6
 194
 201
 209
+./test008.sh
+7
+15
 done (don't forget to check)
-filefinder 1.12.6
+filefinder 1.12.8
 
-real	0m0,311s
-user	0m0,508s
-sys	0m0,161s
+real	0m0,498s
+user	0m0,680s
+sys	0m0,201s

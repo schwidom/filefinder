@@ -185,7 +185,7 @@ dependencies = [
 
 [[package]]
 name = "filefinder"
-version = "1.12.7"
+version = "1.12.8"
 dependencies = [
  "chrono",
  "clap",
