@@ -51,3 +51,14 @@ space/filledfilewith123
 EOF
 )
 
+echo "$LINENO"
+
+diff <(
+"$BINARY" -p space -e '(and0 isfile (|0 not0 filecontents1 (<1 "123
+") filecontents1 (>1 "123
+")))'
+) <( cat <<EOF
+space/filledfilewith123
+EOF
+)
+
