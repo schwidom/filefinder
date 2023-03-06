@@ -35,9 +35,10 @@ EOF
 echo "$LINENO"
 
 diff <(
-"$BINARY" -p space -e 't' --format="- {extension} - {filestem} - {basename} - {dirname} - {path} - {isfile}  - {islink} - {isdir} - {isempty} - {isreadonly} - {exists} - {pathlength} - {pathdepth} -"
+"$BINARY" -p space -e 't' --format="- {extension} - {filestem} - {basename} - {dirname} - {path} - {isfile}  - {islink} - {isdir} - {isempty} - {isreadonly} - {exists} - {pathlength} - {pathdepth} -" | sort
 ) <(
-cat <<EOF
+cat <<EOF | sort
+-  - filledfilewith123 - filledfilewith123 - space - space/filledfilewith123 - true  - false - false - false - false - true - 23 - 3 -
 -  - space - space -  - space - false  - false - true - false - false - true - 5 - 2 -
 -  - tonowhere - tonowhere - space - space/tonowhere - false  - true - false - false - false - false - 15 - 3 -
 -  - c - c - space - space/c - false  - false - true - false - false - true - 7 - 3 -

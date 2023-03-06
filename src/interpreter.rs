@@ -417,6 +417,20 @@ impl Interpreter {
     "pathdepth1" => { // TODO : vs. searchdepth
       self.cmp( &state.stmt[1], state.path.cm_depth()) 
     }, 
+    "filecontents1" => { // TODO: optimize for long files: cmp for filedescriptors
+      if ! state.path.is_file() { false }
+      else {
+       let contents = std::fs::read_to_string(state.path.cm_path()).unwrap();
+       self.cmp( &state.stmt[1], &contents)
+      }
+    }, 
+/* // TODO
+    "filecontents3" => { // TODO : filecontents2 (from, from to)
+      use std::fs::File;
+      let mut file = File::open( state.path.cm_path());
+      self.cmp( &state.stmt[3], contents);
+    }, 
+*/
     "isdir0" => { state.path.is_dir() },
     "isfile0" => { state.path.is_file() },
     "islink0" => { state.path.is_symlink() },

@@ -583,6 +583,19 @@ impl Compiler {
       let mut f2 = self.cmpfu64( &state.stmt[1]); 
       newfunbox!( this, path, f2.call( this, path.cm_depth()))
     }, 
+    "filecontents1" => { // TODO: optimize for long files: cmp for filedescriptors
+ 
+      let mut f2 = self.cmpf( &state.stmt[1]);
+
+      newfunbox!( this, path, {
+
+      if ! path.is_file() { false }
+      else {
+       let contents = std::fs::read_to_string(path.cm_path()).unwrap();
+       f2.call( this, contents)
+      }
+     })
+    }, 
     "isdir0" => { newfunbox!( path, path.is_dir()) },
     "isfile0" => { newfunbox!( path, path.is_file()) },
     "islink0" => { newfunbox!( path, path.is_symlink()) },

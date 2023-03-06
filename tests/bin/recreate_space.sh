@@ -24,6 +24,7 @@ done
  touch emptyfile
  ln -s emptydir to-emptydir
  ln -s emptyfile to-emptyfile
+ echo 123 > filledfilewith123
 )
 
 echo
